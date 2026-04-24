@@ -1,4 +1,4 @@
-package com.eclipse.sdv.fleet.analysis;
+package org.eclipse.sdv.fleet.analysis;
 
 public class InfluxStatsConfig {
   private static final long DEFAULT_INTERVAL_SECONDS = 30;

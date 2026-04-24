@@ -1,4 +1,4 @@
-package com.eclipse.sdv.fleet.analysis;
+package org.eclipse.sdv.fleet.analysis;
 
 public class InfluxWriteResult {
   private boolean headerWritten;

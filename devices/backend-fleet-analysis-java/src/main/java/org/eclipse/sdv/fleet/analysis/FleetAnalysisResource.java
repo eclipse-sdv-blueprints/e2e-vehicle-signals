@@ -1,4 +1,4 @@
-package com.eclipse.sdv.fleet.analysis;
+package org.eclipse.sdv.fleet.analysis;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;

@@ -1,4 +1,4 @@
-package com.eclipse.sdv.fleet.analysis;
+package org.eclipse.sdv.fleet.analysis;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;

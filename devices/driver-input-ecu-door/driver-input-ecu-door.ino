@@ -20,7 +20,7 @@
 
 #include <WiFiS3.h>
 #include <ArduinoMqttClient.h>
-#include "rfid1.h"
+#include "rfid.h"
 #include "arduino_secrets.h"
 
 char ssid[] = SECRET_SSID;    // your network SSID (name)
@@ -29,7 +29,7 @@ int status = WL_IDLE_STATUS;
 
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
-RFID1 rfid;
+RFID rfid;
 
 const char broker[] = "192.168.88.100";
 const int brokerPort = 1883;

@@ -4,7 +4,7 @@ This device scans RFID cards and publishes the detected identifier as a VSS sign
 
 ## Responsibilities
 
-- Read RFID UID from RC522 (MFRC522-compatible) module using local `RFID1` library.
+- Read RFID UID from RC522 (MFRC522-compatible) module using local `RFID` library.
 - Connect over Wi-Fi and publish to MQTT broker on Raspberry Pi 5.
 - Publish VSS signal:
   - `Vehicle.Driver.Identifier.Subject` (string)
@@ -26,4 +26,4 @@ The MQTT-to-gRPC bridge on the Pi 5 maps this payload to Kuksa Databroker `Val/S
 ## Files
 
 - Sketch: `devices/driver-input-ecu-door/driver-input-ecu-door.ino`
-- RFID library: `devices/driver-input-ecu-door/libraries/RFID1`
+- RFID library: `devices/driver-input-ecu-door/libraries/RFID`

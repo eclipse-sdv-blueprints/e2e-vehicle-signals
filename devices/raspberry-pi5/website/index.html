@@ -1,0 +1,363 @@
+<!--
+  Copyright (c) 2026 Contributors to the Eclipse Foundation
+
+  See the NOTICE file(s) distributed with this work for additional
+  information regarding copyright ownership.
+
+  This program and the accompanying materials are made available under the
+  terms of the Apache License 2.0 which is available at
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  SPDX-License-Identifier: Apache-2.0
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Raspberry Pi 5 SDV Live Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Raspberry Pi 5 SDV Live Demo</h1>
+      <p>Architecture, live signal flow, and workload monitoring in one screen</p>
+    </div>
+    <div class="topbar-right">
+      <span id="mode-pill" class="pill">Live mode</span>
+      <span id="last-update" class="muted">No update yet</span>
+      <button id="refresh-btn" type="button">Refresh now</button>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Views">
+    <button class="tab-btn active" data-tab-target="architecture">Architecture</button>
+    <button class="tab-btn" data-tab-target="flow">Signal Flow</button>
+    <button class="tab-btn" data-tab-target="dashboards">Dashboards</button>
+  </nav>
+
+  <main>
+    <section id="architecture" class="view active" aria-label="Architecture View">
+      <div class="section-head">
+        <h2>Component Architecture Map</h2>
+        <p>Based on <a href="../../../docs/full-architecture.puml">full-architecture.puml</a> with the demonstrator background.</p>
+      </div>
+
+      <div class="architecture-stage">
+        <div class="architecture-canvas">
+          <svg class="link-layer" viewBox="0 0 1200 720" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path class="arch-link" data-conn="mqtt_transfer" d="M244 330 L286 330" />
+            <path class="arch-link" data-conn="mqtt_transfer" d="M414 330 L438 330" />
+            <path class="arch-link" data-conn="mqtt_transfer" d="M606 330 L624 330" />
+            <path class="arch-link" data-conn="databroker_signals" d="M792 330 L810 330" />
+            <path class="arch-link" data-conn="can_feedback" d="M978 330 L1002 330" />
+            <path class="arch-link" data-conn="can_feedback" d="M1002 350 L978 350" />
+            <path class="arch-link" data-conn="mqtt_transfer" d="M330 372 L250 430" />
+            <path class="arch-link" d="M264 522 L264 540" />
+            <path class="arch-link" data-conn="fms_pipeline" d="M522 138 L708 284" />
+            <path class="arch-link" data-conn="fms_pipeline" d="M708 284 L708 138" />
+            <path class="arch-link" data-conn="fms_pipeline" d="M792 138 L804 138" />
+            <path class="arch-link" data-conn="fms_pipeline" d="M1020 138 L1032 138" />
+            <path class="arch-link" data-conn="ankaios_workloads" d="M528 548 L302 374" />
+            <path class="arch-link" data-conn="ankaios_workloads" d="M528 548 L522 374" />
+            <path class="arch-link" data-conn="ankaios_workloads" d="M528 548 L894 374" />
+            <path class="arch-link" data-conn="dozzle_monitoring" d="M828 575 L708 374" />
+            <path class="arch-link" data-conn="dozzle_monitoring" d="M828 575 L708 138" />
+            <path class="arch-link" data-conn="dozzle_monitoring" d="M828 575 L912 138" />
+            <path class="arch-link" data-conn="dozzle_monitoring" d="M828 575 L1104 138" />
+          </svg>
+
+          <div class="conn-label zenoh-label-forwarder" data-conn="fms_pipeline">
+            <img src="./assets/Zenoh.png" alt="Zenoh logo">
+            <img src="./assets/uprotocol_logo.png" alt="uProtocol logo">
+            <span>Zenoh + uProtocol</span>
+          </div>
+          <div class="conn-label zenoh-label-consumer" data-conn="fms_pipeline">
+            <img src="./assets/Zenoh.png" alt="Zenoh logo">
+            <img src="./assets/uprotocol_logo.png" alt="uProtocol logo">
+            <span>Zenoh + uProtocol</span>
+          </div>
+          <div class="conn-label zenoh-label-server" data-conn="fms_pipeline">
+            <img src="./assets/Zenoh.png" alt="Zenoh logo">
+            <img src="./assets/uprotocol_logo.png" alt="uProtocol logo">
+            <span>Zenoh + uProtocol</span>
+          </div>
+          <div class="conn-label grpc-label-csv-kuksa" data-conn="fms_pipeline">
+            <img src="./assets/grpc-icon-color.png" alt="gRPC logo">
+            <span>gRPC</span>
+          </div>
+          <div class="conn-label mqtt-label-threadx-left" data-conn="mqtt_transfer">
+            <span>MQTT</span>
+          </div>
+          <div class="conn-label someip-label-threadx">
+            <span>someIP</span>
+          </div>
+
+          <article class="node driver node-large" data-service="mqtt_transfer">
+            <div class="node-head">
+              <h3>Driver Input ECUs</h3>
+              <img class="node-logo" src="./assets/ArduinoCommunityLogo-up.png" alt="Arduino logo">
+            </div>
+            <p>Joystick + RFID on Arduino publish MQTT JSON on <code>InVehicleTopics</code>.</p>
+          </article>
+
+          <article class="node mosquitto" data-service="mqtt">
+            <div class="node-head">
+              <h3>Mosquitto Broker</h3>
+              <img class="node-logo node-logo-wide" src="./assets/mosquitto-text-below.svg" alt="Mosquitto logo">
+            </div>
+            <p>Topic router for in-vehicle MQTT transfer.</p>
+          </article>
+
+          <article class="node bridge" data-service="mqtt_transfer">
+            <h3>grpc-mqtt-bridge</h3>
+            <p>Converts MQTT payloads into Kuksa <code>Val/Set</code> updates.</p>
+          </article>
+
+          <article class="node kuksa" data-service="kuksa">
+            <div class="node-head">
+              <h3>Kuksa Databroker</h3>
+              <img class="node-logo" src="./assets/kuksa.png" alt="Kuksa logo">
+            </div>
+            <p>Vehicle signal state and subscriptions.</p>
+          </article>
+
+          <article class="node can-provider" data-service="databroker_signals">
+            <div class="node-head">
+              <h3>Kuksa CAN Provider</h3>
+              <img class="node-logo" src="./assets/kuksa.png" alt="Kuksa logo">
+            </div>
+            <p>Maps VSS signals to CAN frames and back.</p>
+          </article>
+
+          <article class="node blinker" data-service="can_feedback">
+            <div class="node-head">
+              <h3>Blinker ECU</h3>
+              <img class="node-logo" src="./assets/ArduinoCommunityLogo-up.png" alt="Arduino logo">
+            </div>
+            <p>MCU LED control receives command and sends status feedback.</p>
+          </article>
+
+          <article class="node ankaios" data-service="ankaios_workloads">
+            <div class="node-head">
+              <h3>Ankaios</h3>
+              <img class="node-logo" src="./assets/Ankaios.png" alt="Ankaios logo">
+            </div>
+            <p>Controls Mosquitto, bridge, CAN provider, and website workloads.</p>
+          </article>
+
+          <article class="node node-small csv-provider" data-service="fms_pipeline">
+            <div class="node-head">
+              <h3>csv-provider</h3>
+              <img class="node-logo" src="./assets/kuksa.png" alt="Kuksa logo">
+            </div>
+            <p>Feeds fleet demo signals into the Databroker.</p>
+          </article>
+
+          <article class="node node-small fms-forwarder" data-service="fms_pipeline">
+            <div class="node-head">
+              <h3>fms-forwarder</h3>
+              <img class="node-logo" src="./assets/blueprints.png" alt="Eclipse SDV Blueprints logo">
+            </div>
+            <p>Reads Databroker signals and writes fleet telemetry.</p>
+          </article>
+
+          <article class="node node-small fms-consumer" data-service="fms_pipeline">
+            <div class="node-head">
+              <h3>fms-consumer</h3>
+              <img class="node-logo" src="./assets/blueprints.png" alt="Eclipse SDV Blueprints logo">
+            </div>
+            <p>Consumes the fleet data stream in the backend stack.</p>
+          </article>
+
+          <article class="node fms" data-service="fms_pipeline">
+            <div class="node-head">
+              <h3>Grafana + FMS Server</h3>
+              <img class="node-logo node-logo-wide" src="./assets/blueprints.png" alt="Eclipse SDV Blueprints logo">
+            </div>
+            <p>Fleet dashboards and backend API views.</p>
+          </article>
+
+          <article class="node threadx-1 node-small" data-service="mqtt_transfer">
+            <div class="node-head">
+              <h3>External Blinker ECU</h3>
+              <img class="node-logo" src="./assets/ThreadX.png" alt="ThreadX logo">
+            </div>
+            <p>MQTT subscriber peer with SOME/IP state exchange.</p>
+          </article>
+
+          <article class="node threadx-2 node-small">
+            <div class="node-head">
+              <h3>Button Input ECU</h3>
+              <img class="node-logo" src="./assets/ThreadX.png" alt="ThreadX logo">
+            </div>
+            <p>SOME/IP peer for external button communication.</p>
+          </article>
+
+          <article class="node dozzle" data-service="dozzle_monitoring">
+            <div class="node-head">
+              <h3>Dozzle</h3>
+              <img class="node-logo node-logo-wide" src="./assets/dozzle_logo.svg" alt="Dozzle logo">
+            </div>
+            <p>Observes the Databroker and Docker Compose runtime services.</p>
+          </article>
+
+          <article class="node blueprints-badge">
+            <img class="node-logo node-logo-wide" src="./assets/blueprints.png" alt="Eclipse SDV Blueprints logo">
+            <p>Eclipse SDV Blueprints</p>
+          </article>
+        </div>
+      </div>
+
+      <ul class="legend" aria-label="Status Legend">
+        <li><span class="swatch active"></span> Active connection</li>
+        <li><span class="swatch inactive"></span> Inactive or unreachable</li>
+        <li><span class="swatch pending"></span> Reachable but no recent traffic</li>
+      </ul>
+    </section>
+
+    <section id="flow" class="view" aria-label="Signal Flow View">
+      <div class="section-head">
+        <h2>Live Signal Workflow</h2>
+        <p>Derived from <a href="../communication-workflow.puml">communication-workflow.puml</a>.</p>
+      </div>
+
+      <div class="lane-list">
+        <article class="lane" data-conn="mqtt_transfer">
+          <header>
+            <h3>Command path</h3>
+            <span class="lane-state" data-lane-state="mqtt_transfer">Unknown</span>
+          </header>
+          <p>Driver input -> MQTT -> Bridge -> Kuksa -> CAN command</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+
+        <article class="lane" data-conn="databroker_signals">
+          <header>
+            <h3>Databroker signal path</h3>
+            <span class="lane-state" data-lane-state="databroker_signals">Unknown</span>
+          </header>
+          <p>Kuksa signal set/get updates and provider synchronization</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+
+        <article class="lane" data-conn="can_feedback">
+          <header>
+            <h3>Feedback path</h3>
+            <span class="lane-state" data-lane-state="can_feedback">Unknown</span>
+          </header>
+          <p>Blinker ECU status -> CAN Provider -> Kuksa consumers</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+
+        <article class="lane" data-conn="fms_pipeline">
+          <header>
+            <h3>Fleet path</h3>
+            <span class="lane-state" data-lane-state="fms_pipeline">Unknown</span>
+          </header>
+          <p>Databroker -> fms-forwarder (Zenoh) -> fms-consumer/FMS Server</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+
+        <article class="lane" data-conn="ankaios_workloads">
+          <header>
+            <h3>Ankaios workload path</h3>
+            <span class="lane-state" data-lane-state="ankaios_workloads">Unknown</span>
+          </header>
+          <p>Ankaios control plane managing the signal workloads</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+
+        <article class="lane" data-conn="dozzle_monitoring">
+          <header>
+            <h3>Dozzle monitoring path</h3>
+            <span class="lane-state" data-lane-state="dozzle_monitoring">Unknown</span>
+          </header>
+          <p>Container runtime visibility and log stream observability</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+      </div>
+
+      <div class="event-log-wrap">
+        <h3>Recent Runtime Events</h3>
+        <ul id="event-log" class="event-log">
+          <li>Waiting for first status update...</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="dashboards" class="view" aria-label="Dashboards and Runtime">
+      <div class="section-head">
+        <h2>Runtime Status and Embedded Dashboards</h2>
+        <p>Main focus: MQTT transfer, Databroker signals, Ankaios workloads, and Dozzle containers.</p>
+      </div>
+
+      <div class="status-grid">
+        <article class="status-card" id="svc-mqtt">
+          <h3>MQTT Transfer</h3>
+          <p class="status-text">Unknown</p>
+          <small class="status-detail">No probe yet</small>
+        </article>
+
+        <article class="status-card" id="svc-kuksa">
+          <h3>Kuksa Databroker</h3>
+          <p class="status-text">Unknown</p>
+          <small class="status-detail">No probe yet</small>
+        </article>
+
+        <article class="status-card" id="svc-ankaios">
+          <h3>Ankaios Workloads</h3>
+          <p class="status-text">Unknown</p>
+          <small class="status-detail">No probe yet</small>
+        </article>
+
+        <article class="status-card" id="svc-dozzle">
+          <h3>Dozzle Containers</h3>
+          <p class="status-text">Unknown</p>
+          <small class="status-detail">No probe yet</small>
+        </article>
+      </div>
+
+      <div class="frames-grid">
+        <article class="frame-card">
+          <header>
+            <h3>Ankaios Dashboard</h3>
+            <a id="ank-open-link" href="#" target="_blank" rel="noreferrer">Open in new tab</a>
+          </header>
+          <p id="ank-url" class="muted">URL not set</p>
+          <iframe id="ank-frame" title="Ankaios Dashboard" loading="lazy"></iframe>
+        </article>
+
+        <article class="frame-card">
+          <header>
+            <h3>Dozzle</h3>
+            <a id="dozzle-open-link" href="#" target="_blank" rel="noreferrer">Open in new tab</a>
+          </header>
+          <p id="dozzle-url" class="muted">URL not set</p>
+          <iframe id="dozzle-frame" title="Dozzle" loading="lazy"></iframe>
+        </article>
+      </div>
+
+      <article class="container-table-card">
+        <h3>Detected Running Containers</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Runtime</th>
+              <th>Name</th>
+              <th>Image</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="container-rows">
+            <tr><td colspan="4">No data yet</td></tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

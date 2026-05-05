@@ -1,0 +1,53 @@
+name: Render PlantUML Diagrams
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - docs/full-architecture.puml
+      - devices/raspberry-pi5/communication-workflow.puml
+      - .github/workflows/render-plantuml-diagrams.yml
+  pull_request:
+    paths:
+      - docs/full-architecture.puml
+      - devices/raspberry-pi5/communication-workflow.puml
+      - .github/workflows/render-plantuml-diagrams.yml
+
+permissions:
+  contents: read
+
+jobs:
+  render-diagrams:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Render PNG and SVG from PlantUML sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            "docs/full-architecture.puml"
+            "devices/raspberry-pi5/communication-workflow.puml"
+          )
+
+          for format in png svg; do
+            docker run --rm \
+              -v "${GITHUB_WORKSPACE}:/workspace" \
+              -w /workspace \
+              plantuml/plantuml:latest \
+              "-t${format}" \
+              "${files[@]}"
+          done
+
+      - name: Upload rendered diagrams
+        uses: actions/upload-artifact@v4
+        with:
+          name: plantuml-diagrams-${{ github.sha }}
+          path: |
+            docs/full-architecture.png
+            docs/full-architecture.svg
+            devices/raspberry-pi5/communication-workflow.png
+            devices/raspberry-pi5/communication-workflow.svg
+          if-no-files-found: error

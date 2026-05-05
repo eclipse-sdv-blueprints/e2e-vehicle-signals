@@ -1,0 +1,49 @@
+@startuml
+title Raspberry Pi 5 Vehicle Signals Communication Workflow
+
+actor "Driver" as Driver
+participant "Joystick ECU\n(Arduino)" as JoystickECU
+participant "Door RFID ECU\n(Arduino + RC522)" as RfidECU
+participant "Mosquitto\n(MQTT Broker)" as Broker
+participant "MQTT-to-gRPC Bridge" as Bridge
+participant "Kuksa Databroker" as Kuksa
+participant "Kuksa CAN Provider" as CAN
+participant "Blinker ECU\n(MCU1 LED Control)" as MCU
+participant "VSS Consumers\n(Fleet/UI/CLI)" as Consumers
+participant "AZ3166 Device 1\n(ThreadX + OpenSOME/IP + MQTT Sub)" as AZA
+participant "AZ3166 Device 2\n(ThreadX + OpenSOME/IP)" as AZB
+
+== Command path (driver input to actuators) ==
+Driver -> JoystickECU: Move joystick / press button
+JoystickECU -> Broker: Publish JSON on InVehicleTopics
+Broker -> Bridge: Deliver MQTT message
+Bridge -> Kuksa: gRPC Val/Set (VSS updates)
+Kuksa -> CAN: Target value subscription (val2dbc)
+CAN -> MCU: CAN frame BlinkerCommand (ID 288)
+
+== Driver identity path (RFID to VSS) ==
+Driver -> RfidECU: Present RFID card
+RfidECU -> Broker: Publish {"Vehicle.Driver.Identifier.Subject":"<UID>"}
+Broker -> Bridge: Deliver MQTT message
+Bridge -> Kuksa: Set Vehicle.Driver.Identifier.Subject (string)
+
+== Feedback path (bus state back to VSS) ==
+MCU -> CAN: CAN frame BlinkerStatus (ID 289)
+CAN -> Kuksa: Write current values (dbc2val)
+Kuksa -> Consumers: Read/Subscribe signal state
+
+== ThreadX relay path (Device 1 MQTT subscribe -> Device 2 SOME/IP) ==
+Broker -> AZA: MQTT publish delivery\nDirectionIndication, Brake
+AZA -> AZA: Subscribe + parse MQTT payload\nextract direction + brake
+AZA -> AZB: SOME/IP over WiFi (UDP)\nforward [DirectionIndication, Brake]
+AZB -> AZB: Apply remote state\nupdate LED/OLED/UI
+
+== ThreadX button sync path (vice versa) ==
+AZA -> AZA: Detect local Button A / Button B press
+AZA -> AZB: SOME/IP over WiFi (UDP)\npublish [ButtonA, ButtonB] status (Device 1 -> Device 2)
+AZB -> AZB: Apply remote button state
+AZB -> AZB: Detect local Button A / Button B press
+AZB -> AZA: SOME/IP over WiFi (UDP)\npublish [ButtonA, ButtonB] status (Device 2 -> Device 1)
+AZA -> AZA: Apply remote button state
+
+@enduml

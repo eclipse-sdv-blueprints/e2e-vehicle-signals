@@ -1,0 +1,154 @@
+apiVersion: v1
+workloads:
+  mosquitto-broker:
+    runtime: podman
+    agent: agent_B
+    restartPolicy: ALWAYS
+    configs:
+      mosquitto_conf: mosquitto_config
+    files:
+      - mountPoint: "/mosquitto/config/mosquitto.conf" # mount point in the container
+        data: "{{mosquitto_conf}}" 
+    runtimeConfig: |
+      image: docker.io/eclipse-mosquitto:latest
+      commandOptions: ["--net=host"]
+  grpc-mqtt-bridge:
+    runtime: podman
+    agent: agent_B
+    restartPolicy: ALWAYS
+    configs:
+      grpc_mqtt_config: grpc_mqtt_config
+    files:
+      - mountPoint: "/config/grpc-mqtt.yaml"
+        data: "{{grpc_mqtt_config}}"
+    runtimeConfig: |
+      image: ghcr.io/chheis/eclipse-sdv-e2e-demo-blueprint/grpc-mqtt-bridge:main
+      commandArgs: ["--config", "/config/grpc-mqtt.yaml"]
+      commandOptions: ["--net=host"]
+  kuksa-can-provider:
+    runtime: podman
+    agent: agent_B
+    restartPolicy: ALWAYS
+    runtimeConfig: |
+      image: ghcr.io/eclipse-kuksa/kuksa-can-provider/can-provider:0.4.4
+      commandOptions:
+        - --net=host
+        - --privileged
+        - -v
+        - /opt/kuksa/can-provider/can-provider-config.ini:/config/can-provider-config.ini
+        - -v
+        - /opt/kuksa/can-provider/motorbike-blinker-vss.json:/config/motorbike-blinker-vss.json
+        - -v
+        - /opt/kuksa/can-provider/motorbike-blinker-command.dbc:/config/motorbike-blinker-command.dbc
+        - -v
+        - /opt/kuksa/can-provider/motorbike-blinker-defaults.json:/config/motorbike-blinker-defaults.json
+      commandArgs: ["--config", "/config/can-provider-config.ini"]
+  pi5-demo-website:
+    runtime: podman
+    agent: agent_B
+    restartPolicy: ALWAYS
+    configs:
+      website_config_file: website_config
+    files:
+      - mountPoint: "/app/site-config.json"
+        data: "{{website_config_file}}"
+    runtimeConfig: |
+      image: localhost/pi5-demo-website:latest
+      commandOptions:
+        - --net=host
+        - --privileged
+        - -v
+        - /var/run/docker.sock:/var/run/docker.sock:ro
+configs:
+  mosquitto_config: |
+    listener 1883 0.0.0.0
+    allow_anonymous true
+  grpc_mqtt_config: |
+    mqtt:
+      broker: "tcp://localhost:1883"
+      clientId: "kuksa-mqtt-bridge"
+      subscriptions:
+        - topic: "InVehicleTopics"
+          qos: 0
+    grpc:
+      target: "localhost:55555"
+      plaintext: true
+      method: "kuksa.val.v1.Val/Set"
+    mappings:
+      - name: "joystick-vss-update"
+        mqtt:
+          topic: "InVehicleTopics"
+          jsonPointer: "/"
+        grpc:
+          updates:
+            - path: "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+              type: "bool"
+              jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+            - path: "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+              type: "bool"
+              jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+            - path: "Vehicle.Body.Lights.Brake.IsActive"
+              type: "string"
+              jsonPointer: "/Vehicle.Body.Lights.Brake.IsActive"
+            - path: "Vehicle.Driver.Identifier.Subject"
+              type: "string"
+              jsonPointer: "/Vehicle.Driver.Identifier.Subject"
+  website_config: |
+    {
+      "probe_timeout_seconds": 1.2,
+      "status_cache_seconds": 5.0,
+      "log_window_seconds": 45,
+      "assume_traffic_when_logs_unavailable": true,
+      "require_container_presence_for_active": false,
+      "mqtt": {
+        "host": "127.0.0.1",
+        "port": 1883
+      },
+      "kuksa": {
+        "host": "127.0.0.1",
+        "port": 55555
+      },
+      "ankaios_dashboard_url": "http://127.0.0.1:8084",
+      "dozzle_url": "http://127.0.0.1:8080",
+      "can_observer": {
+        "enabled": true,
+        "interface": "can0",
+        "sample_timeout_seconds": 0.8,
+        "min_poll_interval_seconds": 10.0
+      },
+      "kuksa_observer": {
+        "enabled": true,
+        "paths": [
+          "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
+          "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
+          "Vehicle.Body.Lights.Brake.IsActive",
+          "Vehicle.Driver.Identifier.Subject"
+        ],
+        "command_paths": [
+          "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
+          "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
+          "Vehicle.Body.Lights.Brake.IsActive",
+          "Vehicle.Driver.Identifier.Subject"
+        ],
+        "feedback_paths": [
+          "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
+          "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
+          "Vehicle.Body.Lights.Brake.IsActive"
+        ],
+        "token": "",
+        "token_file": "",
+        "tls": false,
+        "root_ca": "",
+        "tls_server_name": ""
+      },
+      "containers": {
+        "mqtt_broker": ["mosquitto-broker", "mosquitto"],
+        "mqtt_bridge": ["grpc-mqtt-bridge"],
+        "kuksa_databroker": ["kuksa-databroker", "databroker"],
+        "can_provider": ["kuksa-can-provider"],
+        "ankaios": ["ank-server", "ank-agent", "ankaios"],
+        "dozzle": ["dozzle"],
+        "fms_forwarder": ["fms-forwarder"],
+        "grafana": ["grafana"]
+      }
+    }

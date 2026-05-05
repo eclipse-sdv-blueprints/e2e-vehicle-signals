@@ -1,0 +1,8 @@
+.vscode
+/devices/driver-input-ecu-arduino/mcu2-joystick-input/arduino_secrets.h
+/devices/driver-input-ecu-door/arduino_secrets.h
+**/libraries/
+!devices/driver-input-ecu-door/libraries/
+!devices/driver-input-ecu-door/libraries/RFID1/
+!devices/driver-input-ecu-door/libraries/RFID1/**
+/devices/driver-input-ecu-door/libraries/ArduinoMqttClient

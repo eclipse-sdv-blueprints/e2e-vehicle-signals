@@ -1,0 +1,29 @@
+mqtt:
+  broker: "tcp://localhost:1883"
+  clientId: "kuksa-mqtt-bridge"
+  subscriptions:
+    - topic: "InVehicleTopics"
+      qos: 0
+grpc:
+  target: "localhost:55555"
+  plaintext: true
+  method: "kuksa.val.v1.Val/Set"
+mappings:
+  - name: "joystick-vss-update"
+    mqtt:
+      topic: "InVehicleTopics"
+      jsonPointer: "/"
+    grpc:
+      updates:
+        - path: "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+          type: "bool"
+          jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+        - path: "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+          type: "bool"
+          jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+        - path: "Vehicle.Body.Lights.Brake.IsActive"
+          type: "string"
+          jsonPointer: "/Vehicle.Body.Lights.Brake.IsActive"
+        - path: "Vehicle.Driver.Identifier.Subject"
+          type: "string"
+          jsonPointer: "/Vehicle.Driver.Identifier.Subject"

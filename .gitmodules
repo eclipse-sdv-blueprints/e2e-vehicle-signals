@@ -1,0 +1,9 @@
+[submodule "external/fleet-management"]
+	path = external/fleet-management
+	url = https://github.com/chheis/fleet-management.git
+[submodule "devices/raspberry-pi5/kuksa-can-provider"]
+	path = devices/raspberry-pi5/kuksa-can-provider
+	url = https://github.com/eclipse-kuksa/kuksa-can-provider.git
+[submodule "external/challenge-threadx-playRemote"]
+	path = external/challenge-threadx-playRemote
+	url = https://github.com/chheis/challenge-threadx-playRemote

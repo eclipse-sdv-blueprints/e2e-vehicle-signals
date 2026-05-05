@@ -1,0 +1,117 @@
+{
+  "Vehicle": {
+    "type": "branch",
+    "description": "High-level vehicle data.",
+    "children": {
+      "Body": {
+        "type": "branch",
+        "description": "Body-related signals.",
+        "children": {
+          "Lights": {
+            "type": "branch",
+            "description": "Exterior lights.",
+            "children": {
+              "DirectionIndicator": {
+                "type": "branch",
+                "description": "Indicator lights.",
+                "children": {
+                  "Left": {
+                    "type": "branch",
+                    "description": "Left indicator.",
+                    "children": {
+                      "IsSignaling": {
+                        "datatype": "boolean",
+                        "description": "Indicates if left indicator is signaling.",
+                        "type": "actuator",
+                        "dbc2vss": {
+                          "signal": "DirectionIndicatorLeft",
+                          "on_change": true
+                        },
+                        "vss2dbc": {
+                          "signal": "DirectionIndicatorLeft"
+                        }
+                      }
+                    }
+                  },
+                  "Right": {
+                    "type": "branch",
+                    "description": "Right indicator.",
+                    "children": {
+                      "IsSignaling": {
+                        "datatype": "boolean",
+                        "description": "Indicates if right indicator is signaling.",
+                        "type": "actuator",
+                        "dbc2vss": {
+                          "signal": "DirectionIndicatorRight",
+                          "on_change": true
+                        },
+                        "vss2dbc": {
+                          "signal": "DirectionIndicatorRight"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "Brake": {
+                "type": "branch",
+                "description": "Brake lights.",
+                "children": {
+                  "IsActive": {
+                    "allowed": [
+                      "INACTIVE",
+                      "ACTIVE",
+                      "ADAPTIVE"
+                    ],
+                    "datatype": "string",
+                    "description": "Indicates if brake-light is active.",
+                    "type": "actuator",
+                    "dbc2vss": {
+                      "signal": "BrakeIsActive",
+                      "on_change": true,
+                      "transform": {
+                        "mapping": [
+                          {
+                            "from": 0,
+                            "to": "INACTIVE"
+                          },
+                          {
+                            "from": 1,
+                            "to": "ACTIVE"
+                          },
+                          {
+                            "from": 2,
+                            "to": "ADAPTIVE"
+                          }
+                        ]
+                      }
+                    },
+                    "vss2dbc": {
+                      "signal": "BrakeIsActive",
+                      "transform": {
+                        "mapping": [
+                          {
+                            "from": "INACTIVE",
+                            "to": 0
+                          },
+                          {
+                            "from": "ACTIVE",
+                            "to": 1
+                          },
+                          {
+                            "from": "ADAPTIVE",
+                            "to": 1
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -11,7 +11,7 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 
-ackage org.eclipse.sdv.fleet.analysis;
+package org.eclipse.sdv.fleet.analysis;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

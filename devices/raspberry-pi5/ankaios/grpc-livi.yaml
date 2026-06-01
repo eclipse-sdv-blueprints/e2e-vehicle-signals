@@ -1,0 +1,85 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+# Configuration for the Kuksa-to-LIVI Telemetry Bridge.
+#
+# Subscribes to the listed VSS paths on the Kuksa Databroker (gRPC) and pushes
+# transformed values into the LIVI head unit via Socket.IO `telemetry:push`.
+# LIVI payload contract: https://github.com/f-io/LIVI/blob/main/src/main/shared/types/Telemetry.ts
+
+kuksa:
+  target: "localhost:55555"
+
+livi:
+  # LIVI head unit on the IVI Raspberry Pi 4, reachable over the wired Ethernet link.
+  url: "ws://192.168.88.110:4000"
+
+push:
+  intervalMs: 250
+  sendInitialSnapshot: true
+
+mappings:
+  # ── Blinker / turn indicator ────────────────────────────────────────────────
+  # LIVI exposes a single `turn` enum ('none' | 'left' | 'right').
+  # Each VSS indicator boolean is mapped independently; the bridge sends the
+  # last non-'none' value first, then the 'none' clear-out on the opposite edge.
+  - vssPath: Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+    liviField: turn
+    type: string
+    enumMap:
+      true: "left"
+      false: "none"
+
+  - vssPath: Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+    liviField: turn
+    type: string
+    enumMap:
+      true: "right"
+      false: "none"
+
+  # ── Brake light ─────────────────────────────────────────────────────────────
+  # VSS string enum INACTIVE / ACTIVE / ADAPTIVE → LIVI `hazards` boolean
+  # (ADAPTIVE = emergency-braking ⇒ hazards on; ACTIVE = normal brake).
+  - vssPath: Vehicle.Body.Lights.Brake.IsActive
+    liviField: hazards
+    type: bool
+    enumMap:
+      INACTIVE: false
+      ACTIVE: false
+      ADAPTIVE: true
+
+  # ── Driver identity (RFID) ──────────────────────────────────────────────────
+  # LIVI's TelemetryPayload has an open `[key: string]: unknown` extension
+  # point — we expose the RFID UID as a custom `driverId` field so the LIVI
+  # dashboard can surface "current driver" without changing the upstream type.
+  - vssPath: Vehicle.Driver.Identifier.Subject
+    liviField: driverId
+    type: string
+
+  # ── Optional: vehicle motion / cluster basics ──────────────────────────────
+  # Enable these once the corresponding VSS signals are produced (e.g. by a
+  # csv-provider or the kuksa-can-provider). They map 1:1 to LIVI cluster
+  # widgets according to TelemetryPayload.
+  # - { vssPath: Vehicle.Speed,                                 liviField: speedKph,     type: float }
+  # - { vssPath: Vehicle.Powertrain.CombustionEngine.Speed,     liviField: rpm,          type: int }
+  # - { vssPath: Vehicle.Powertrain.Transmission.SelectedGear,  liviField: gear }
+  # - { vssPath: Vehicle.Powertrain.FuelSystem.Level,           liviField: fuelPct,      type: float }
+  # - { vssPath: Vehicle.Powertrain.FuelSystem.Range,           liviField: rangeKm,      type: float, scale: 0.001 }
+  # - { vssPath: Vehicle.CurrentLocation.Latitude,              liviField: gps.lat,      type: float }
+  # - { vssPath: Vehicle.CurrentLocation.Longitude,             liviField: gps.lng,      type: float }
+  # - { vssPath: Vehicle.CurrentLocation.Altitude,              liviField: gps.alt,      type: float }
+  # - { vssPath: Vehicle.CurrentLocation.Heading,               liviField: gps.heading,  type: float }
+  # - { vssPath: Vehicle.Exterior.AirTemperature,               liviField: ambientC,     type: float }
+  # - { vssPath: Vehicle.Powertrain.CombustionEngine.ECT,       liviField: coolantC,     type: float }
+  # - { vssPath: Vehicle.LowVoltageBattery.CurrentVoltage,      liviField: batteryV,     type: float }
+  # - { vssPath: Vehicle.TraveledDistance,                      liviField: odometerKm,   type: float, scale: 0.001 }

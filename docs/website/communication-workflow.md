@@ -86,7 +86,24 @@ Arduino LED ECU applies blinker/brake state
         → Available to all VSS subscribers (Fleet, UI, CLI)
 ```
 
-### 4. ThreadX SOME/IP Relay Path (Optional)
+### 4. IVI Telemetry Path — VSS to LIVI Dashboard (Optional)
+
+When the IVI Raspberry Pi 4 running [LIVI](https://github.com/f-io/LIVI) is connected via Ethernet, the **Kuksa-to-LIVI Telemetry Bridge** workload mirrors VSS state into the head unit:
+
+```
+Kuksa Databroker (VSS, gRPC)
+  → kuksa-livi-bridge subscribes via VSSClient.subscribe_current_values(...)
+    → enumMap / scale / offset / type cast per mapping
+      → batched every 250 ms into a TelemetryPayload JSON object
+        → Socket.IO emit "telemetry:push" to ws://<pi4-ivi>:4000
+          → LIVI merges into its telemetry store
+            → Dash widgets + Android Auto cluster re-render
+              → optionally projected to the paired Android phone over Wi-Fi/Bluetooth
+```
+
+See **[IVI Head Unit (LIVI)](./device-ivi-livi)** for the full VSS → LIVI field mapping and configuration reference.
+
+### 5. ThreadX SOME/IP Relay Path (Optional)
 
 ```
 Mosquitto → AZ3166 Device 1 (MQTT subscriber)

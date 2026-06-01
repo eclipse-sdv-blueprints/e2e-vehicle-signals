@@ -89,8 +89,7 @@ The mapping table lives in [`devices/raspberry-pi5/ankaios/grpc-livi.yaml`](http
 
 | VSS path (Kuksa, gRPC) | LIVI field | Type | Transform | Notes |
 | --- | --- | --- | --- | --- |
-| `Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling` | `turn` | `string` | `True → "left"`, `False → "none"` | Routed by LIVI to Dash + AA |
-| `Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling` | `turn` | `string` | `True → "right"`, `False → "none"` | Same field; last-writer-wins per VSS edge |
+| `Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling` *and* `…Right.IsSignaling` | `turn` | `string` | **composite** | Both booleans feed a single `turn` enum (`'left'` / `'right'` / `'none'`) via the `composites:` block — see [Composites](#composites--derived-fields-from-multiple-vss-inputs) below. |
 | `Vehicle.Body.Lights.Brake.IsActive` | `hazards` | `bool` | `INACTIVE/ACTIVE → false`, `ADAPTIVE → true` | LIVI hazards bool — flashes on emergency braking |
 | `Vehicle.Driver.Identifier.Subject` | `driverId` | `string` | identity | Custom extension field (`TelemetryPayload`'s open `[key: string]: unknown`) |
 
@@ -170,8 +169,47 @@ produces a payload of the shape `{ "gps": { "lat": ..., "lng": ... } }` — exac
 | `scale` | 2 | Multiply numeric values (e.g. metres → kilometres with `0.001`). |
 | `offset` | 2 | Additive offset applied after `scale`. |
 | `type` | 3 | Final cast (`bool`, `int`, `float`, `string`). For `bool` from strings, `"ACTIVE" / "ADAPTIVE" / "true" / "1" / "yes" / "on"` resolve to `true`. |
+| `skipValues` | pre-1 | Raw VSS values that suppress the push entirely — useful to drop noisy `false` edges that would otherwise clobber a shared LIVI field. |
 
 `null` / missing VSS values are skipped by default to avoid clobbering known LIVI state; set `sendNone: true` on a mapping to forward them anyway.
+
+### Composites — derived fields from multiple VSS inputs
+
+Some LIVI fields are best computed jointly from several VSS paths — the canonical
+example is `turn`, which combines both `DirectionIndicator.*.IsSignaling` booleans
+into a single `'left' | 'right' | 'none'` enum without one side clobbering the
+other. The bridge supports this through the top-level `composites:` block in
+`grpc-livi.yaml`:
+
+```yaml
+composites:
+  - liviField: turn
+    inputs:
+      - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+      - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+    rules:
+      - when: { Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling:  true }
+        value: left
+      - when: { Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true }
+        value: right
+    default: none
+```
+
+Semantics:
+
+- The bridge subscribes to **every** path that appears in `inputs:` (in addition
+  to all `mappings:` paths) and caches the latest value of each.
+- Whenever **any** input changes, the composite is re-evaluated: rules are
+  checked **top-to-bottom**, the first one whose `when:` matches the current VSS
+  snapshot wins, and its `value:` is pushed to `liviField`. If no rule matches,
+  `default:` is used (or nothing is sent when `default:` is absent).
+- Composite outputs are de-duplicated: a re-evaluation that yields the same
+  value as the previous push is suppressed, so a fast train of identical updates
+  does not flood LIVI.
+- Booleans are compared **strictly** (`True != 1`), so a `when: { …: true }`
+  rule only fires for an actual VSS boolean of `true`.
+
+Composites participate in the same 250 ms batching window as simple mappings.
 
 ## Communication workflow
 

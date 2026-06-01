@@ -33,7 +33,35 @@ See [`devices/raspberry-pi5/ankaios/grpc-livi.yaml`](../ankaios/grpc-livi.yaml).
 | `type` | no | Target scalar type: `bool`, `int`, `float`, `string` |
 | `scale` / `offset` | no | Linear transform applied before type coercion |
 | `enumMap` | no | Map VSS values (bool/string/int) to LIVI values (e.g. `True → "left"`) |
+| `skipValues` | no | List of raw VSS values for which **no** LIVI push is emitted (use to suppress noisy `false` edges) |
 | `sendNone` | no | If `true`, also forward `null` values (default: skip) |
+
+Multiple mappings may target the same `vssPath` (e.g. forwarding one signal to both a native LIVI field and a custom extension key).
+
+### Composites — derived fields from multiple VSS inputs
+
+For LIVI fields that need to be computed from several VSS paths (e.g. `turn`,
+which combines the two indicator booleans into a single `'left' | 'right' | 'none'`
+enum), use the top-level `composites:` block:
+
+```yaml
+composites:
+  - liviField: turn
+    inputs:
+      - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+      - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+    rules:
+      - when: { Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling:  true }
+        value: left
+      - when: { Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true }
+        value: right
+    default: none
+```
+
+Rules are evaluated **top-to-bottom** against the latest VSS snapshot; the first
+matching `when` block wins. Missing VSS inputs count as "no match". Composite
+results are de-duplicated — the bridge only re-pushes when the derived value
+actually changes.
 
 Top-level keys:
 

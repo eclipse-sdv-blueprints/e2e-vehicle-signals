@@ -115,18 +115,6 @@ configs:
       intervalMs: 250
       sendInitialSnapshot: true
     mappings:
-      - vssPath: Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
-        liviField: turn
-        type: string
-        enumMap:
-          true: "left"
-          false: "none"
-      - vssPath: Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
-        liviField: turn
-        type: string
-        enumMap:
-          true: "right"
-          false: "none"
       - vssPath: Vehicle.Body.Lights.Brake.IsActive
         liviField: hazards
         type: bool
@@ -153,6 +141,19 @@ configs:
       - { vssPath: Vehicle.Tachograph.Driver.Driver2.WorkingState,                 liviField: driver2State,       type: string }
       - { vssPath: Vehicle.Tachograph.Driver.Driver1.IsCardPresent,                liviField: driver1CardPresent, type: bool }
       - { vssPath: Vehicle.Tachograph.Driver.Driver2.IsCardPresent,                liviField: driver2CardPresent, type: bool }
+    composites:
+      - liviField: turn
+        inputs:
+          - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+          - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+        rules:
+          - when:
+              Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling: true
+            value: left
+          - when:
+              Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true
+            value: right
+        default: none
   website_config: |
     {
       "probe_timeout_seconds": 1.2,

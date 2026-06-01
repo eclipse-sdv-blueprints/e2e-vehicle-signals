@@ -130,3 +130,24 @@ mappings:
   # - { vssPath: Vehicle.CurrentLocation.Heading,               liviField: gps.heading,  type: float }
   # - { vssPath: Vehicle.Powertrain.CombustionEngine.ECT,       liviField: coolantC,     type: float }
   # - { vssPath: Vehicle.LowVoltageBattery.CurrentVoltage,      liviField: batteryV,     type: float }
+
+# ------------------------------------------------------------------------------
+# Composites — derived LIVI fields computed from multiple VSS inputs.
+# Rules are evaluated top-to-bottom against the latest VSS snapshot; the first
+# matching when block wins. Missing VSS inputs are treated as "no match".
+# ------------------------------------------------------------------------------
+composites:
+  # LIVI 	urn enum derived jointly from the two indicator booleans so that
+  # neither side clobbers the other. Left wins if both are active (edge case).
+  - liviField: turn
+    inputs:
+      - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+      - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+    rules:
+      - when:
+          Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling: true
+        value: left
+      - when:
+          Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true
+        value: right
+    default: none

@@ -137,6 +137,22 @@ configs:
       - vssPath: Vehicle.Driver.Identifier.Subject
         liviField: driverId
         type: string
+      # Fleet Management telemetry (csv-provider replay)
+      - { vssPath: Vehicle.VehicleIdentification.VIN,                              liviField: vin,                type: string }
+      - { vssPath: Vehicle.Speed,                                                  liviField: speedKph,           type: float }
+      - { vssPath: Vehicle.Tachograph.VehicleSpeed,                                liviField: gps.speedMs,        type: float,  scale: 0.27778 }
+      - { vssPath: Vehicle.Powertrain.CombustionEngine.Speed,                      liviField: rpm,                type: int }
+      - { vssPath: Vehicle.Powertrain.FuelSystem.Tank.First.RelativeLevel,         liviField: fuelPct,            type: float }
+      - { vssPath: Vehicle.Powertrain.CombustionEngine.DieselExhaustFluid.Level,   liviField: defLevelPct,        type: float }
+      - { vssPath: Vehicle.Powertrain.CombustionEngine.EngineHours,                liviField: engineHours,        type: float }
+      - { vssPath: Vehicle.Chassis.ParkingBrake.IsEngaged,                         liviField: parkingBrake,       type: bool }
+      - { vssPath: Vehicle.Exterior.AirTemperature,                                liviField: ambientC,           type: float }
+      - { vssPath: Vehicle.TraveledDistanceHighRes,                                liviField: odometerKm,         type: float,  scale: 0.001 }
+      - { vssPath: Vehicle.CurrentOverallWeight,                                   liviField: weightKg,           type: float }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver1.WorkingState,                 liviField: driver1State,       type: string }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver2.WorkingState,                 liviField: driver2State,       type: string }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver1.IsCardPresent,                liviField: driver1CardPresent, type: bool }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver2.IsCardPresent,                liviField: driver2CardPresent, type: bool }
   website_config: |
     {
       "probe_timeout_seconds": 1.2,

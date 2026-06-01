@@ -94,9 +94,33 @@ The mapping table lives in [`devices/raspberry-pi5/ankaios/grpc-livi.yaml`](http
 | `Vehicle.Body.Lights.Brake.IsActive` | `hazards` | `bool` | `INACTIVE/ACTIVE → false`, `ADAPTIVE → true` | LIVI hazards bool — flashes on emergency braking |
 | `Vehicle.Driver.Identifier.Subject` | `driverId` | `string` | identity | Custom extension field (`TelemetryPayload`'s open `[key: string]: unknown`) |
 
+### Fleet Management telemetry signals (csv-provider)
+
+When the Fleet Management blueprint is running, the [`csv-provider`](https://github.com/eclipse-sdv-blueprints/fleet-management/tree/main/csv-provider) replays the recording in [`signalsFmsRecording.csv`](https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals/blob/main/external/fleet-management/csv-provider/signalsFmsRecording.csv) into the Kuksa Databroker. The bridge picks every one of those signals up over gRPC and forwards them to LIVI:
+
+| # | VSS path (from `csv-provider`) | LIVI field | Type | Transform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `Vehicle.VehicleIdentification.VIN` | `vin` | `string` | identity | Custom extension field — displayed in LIVI "About vehicle" |
+| 2 | `Vehicle.Speed` | `speedKph` | `float` | identity | Primary cluster speed (km/h) |
+| 3 | `Vehicle.Tachograph.VehicleSpeed` | `gps.speedMs` | `float` | `scale: 0.27778` | Tachograph reports km/h; LIVI's `gps.speedMs` is m/s (`÷ 3.6`). AA prefers this over `speedKph` |
+| 4 | `Vehicle.Powertrain.CombustionEngine.Speed` | `rpm` | `int` | identity | Engine RPM |
+| 5 | `Vehicle.Powertrain.FuelSystem.Tank.First.RelativeLevel` | `fuelPct` | `float` | identity | Already in 0..100 % |
+| 6 | `Vehicle.Powertrain.CombustionEngine.DieselExhaustFluid.Level` | `defLevelPct` | `float` | identity | Custom extension — AdBlue / DEF level |
+| 7 | `Vehicle.Powertrain.CombustionEngine.EngineHours` | `engineHours` | `float` | identity | Custom extension — operating hours |
+| 8 | `Vehicle.Chassis.ParkingBrake.IsEngaged` | `parkingBrake` | `bool` | identity | Native LIVI boolean, routed Dash + AA |
+| 9 | `Vehicle.Exterior.AirTemperature` | `ambientC` | `float` | identity | LIVI also forwards to AA env channel |
+| 10 | `Vehicle.TraveledDistanceHighRes` | `odometerKm` | `float` | `scale: 0.001` | FMS reports metres (5 m resolution) → LIVI odometer in km |
+| 11 | `Vehicle.CurrentOverallWeight` | `weightKg` | `float` | identity | Custom extension — gross vehicle weight |
+| 12 | `Vehicle.Tachograph.Driver.Driver1.WorkingState` | `driver1State` | `string` | identity | Custom extension — `REST` / `DRIVER_AVAILABLE` / `WORK` / `DRIVE` |
+| 13 | `Vehicle.Tachograph.Driver.Driver2.WorkingState` | `driver2State` | `string` | identity | Custom extension |
+| 14 | `Vehicle.Tachograph.Driver.Driver1.IsCardPresent` | `driver1CardPresent` | `bool` | identity | Custom extension |
+| 15 | `Vehicle.Tachograph.Driver.Driver2.IsCardPresent` | `driver2CardPresent` | `bool` | identity | Custom extension |
+
+> All `Vehicle.Tachograph.…` and `Vehicle.VehicleIdentification.VIN`, `Vehicle.CurrentOverallWeight`, `Vehicle.Powertrain.CombustionEngine.DieselExhaustFluid.Level`, `Vehicle.Powertrain.CombustionEngine.EngineHours` fields land in LIVI's open `[key: string]: unknown` extension slot. LIVI's Dashboard merges them into its central store like any other field, so they can be surfaced by custom widgets without breaking the upstream `TelemetryPayload` contract.
+
 ### Optional extended cluster mapping
 
-LIVI's `TelemetryPayload` (see [`Telemetry.ts`](https://github.com/f-io/LIVI/blob/main/src/main/shared/types/Telemetry.ts)) exposes a rich set of cluster fields. The bridge supports them out of the box — enable them by uncommenting the corresponding entries in `grpc-livi.yaml`:
+Beyond the demo and FMS signals above, LIVI's `TelemetryPayload` (see [`Telemetry.ts`](https://github.com/f-io/LIVI/blob/main/src/main/shared/types/Telemetry.ts)) exposes additional cluster fields. The bridge supports them out of the box — wire them up by adding new entries to `grpc-livi.yaml` once the corresponding VSS signals are produced:
 
 | LIVI field | LIVI route (Dash / AA / Dongle) | Suggested VSS source | Transform |
 | --- | --- | --- | --- |

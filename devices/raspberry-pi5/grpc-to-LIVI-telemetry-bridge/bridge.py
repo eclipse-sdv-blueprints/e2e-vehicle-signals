@@ -24,7 +24,7 @@ import argparse
 import logging
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 import socketio
 import yaml
@@ -168,6 +168,39 @@ def _merge_field(payload: Dict[str, Any], dotted_key: str, value: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Composite evaluation — derive one LIVI field from multiple VSS inputs
+# ---------------------------------------------------------------------------
+
+_UNSET = object()
+
+
+def _values_equal(a: Any, b: Any) -> bool:
+    """Equality that doesn't treat ``True`` as ``1`` or ``False`` as ``0``."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    return a == b
+
+
+def _rule_matches(rule_when: Dict[str, Any], vss_state: Dict[str, Any]) -> bool:
+    for path, expected in rule_when.items():
+        actual = vss_state.get(path, _UNSET)
+        if actual is _UNSET or not _values_equal(actual, expected):
+            return False
+    return True
+
+
+def _evaluate_composite(composite_cfg: Dict[str, Any], vss_state: Dict[str, Any]) -> Any:
+    """Return the LIVI value for a composite, or ``_UNSET`` if no rule fires."""
+    for rule in composite_cfg.get("rules", []):
+        when = rule.get("when") or {}
+        if _rule_matches(when, vss_state):
+            return rule.get("value")
+    if "default" in composite_cfg:
+        return composite_cfg["default"]
+    return _UNSET
+
+
+# ---------------------------------------------------------------------------
 # Main bridge loop
 # ---------------------------------------------------------------------------
 
@@ -186,38 +219,98 @@ class Bridge:
         self._push_interval = float(push_cfg.get("intervalMs", 250)) / 1000.0
         self._send_initial_snapshot = bool(push_cfg.get("sendInitialSnapshot", True))
 
-        self._mappings: Dict[str, Dict[str, Any]] = {}
+        # vssPath -> list of mapping configs (multiple mappings per path allowed)
+        self._mappings: Dict[str, List[Dict[str, Any]]] = {}
         for mapping in config.get("mappings", []):
             vss_path = mapping.get("vssPath")
             livi_field = mapping.get("liviField")
             if not vss_path or not livi_field:
                 LOG.warning("Skipping incomplete mapping: %s", mapping)
                 continue
-            self._mappings[vss_path] = mapping
+            self._mappings.setdefault(vss_path, []).append(mapping)
+
+        # Composite (derived) LIVI fields. Each entry triggers re-evaluation
+        # whenever any of its `inputs` VSS paths change.
+        self._composites: List[Dict[str, Any]] = []
+        for composite in config.get("composites", []):
+            livi_field = composite.get("liviField")
+            inputs = composite.get("inputs") or []
+            if not livi_field or not inputs:
+                LOG.warning("Skipping incomplete composite: %s", composite)
+                continue
+            self._composites.append(composite)
+
+        # Index composites by input VSS path for O(1) dispatch on each update.
+        self._composites_by_input: Dict[str, List[Dict[str, Any]]] = {}
+        for composite in self._composites:
+            for path in composite["inputs"]:
+                self._composites_by_input.setdefault(path, []).append(composite)
+
+        # Latest VSS state — used to evaluate composites and avoid redundant pushes.
+        self._vss_state: Dict[str, Any] = {}
+        # Latest LIVI value pushed per composite (to suppress no-op re-emits).
+        self._last_composite_values: Dict[str, Any] = {}
 
         self._pending: Dict[str, Any] = {}
         self._pending_lock = threading.Lock()
         self._livi = LiviClient(self._livi_url)
 
-    # -- mapping ---------------------------------------------------------
+    # -- subscription set -----------------------------------------------
+
+    def subscribed_paths(self) -> List[str]:
+        """All VSS paths the bridge needs from Kuksa (mappings ∪ composite inputs)."""
+        paths: Set[str] = set(self._mappings.keys())
+        paths.update(self._composites_by_input.keys())
+        return sorted(paths)
+
+    # -- mapping --------------------------------------------------------
+
+    @staticmethod
+    def _should_skip(mapping_cfg: Dict[str, Any], raw_value: Any) -> bool:
+        skip_values: Iterable[Any] = mapping_cfg.get("skipValues") or ()
+        for skip in skip_values:
+            if _values_equal(raw_value, skip):
+                return True
+        return False
+
+    def _apply_simple_mappings(self, vss_path: str, raw_value: Any) -> None:
+        for mapping_cfg in self._mappings.get(vss_path, ()):
+            if self._should_skip(mapping_cfg, raw_value):
+                LOG.debug("VSS %s=%r skipped by skipValues for LIVI %s",
+                          vss_path, raw_value, mapping_cfg["liviField"])
+                continue
+            livi_field = mapping_cfg["liviField"]
+            try:
+                transformed = _transform(raw_value, mapping_cfg)
+            except Exception as exc:  # noqa: BLE001
+                LOG.warning("Transform failed for %s=%r: %s", vss_path, raw_value, exc)
+                continue
+            if transformed is None and not mapping_cfg.get("sendNone", False):
+                continue
+            with self._pending_lock:
+                _merge_field(self._pending, livi_field, transformed)
+            LOG.debug("VSS %s=%r → LIVI %s=%r", vss_path, raw_value, livi_field, transformed)
+
+    def _apply_composites(self, vss_path: str) -> None:
+        for composite_cfg in self._composites_by_input.get(vss_path, ()):
+            livi_field = composite_cfg["liviField"]
+            value = _evaluate_composite(composite_cfg, self._vss_state)
+            if value is _UNSET:
+                continue
+            previous = self._last_composite_values.get(livi_field, _UNSET)
+            if previous is not _UNSET and _values_equal(previous, value):
+                continue  # nothing to push
+            self._last_composite_values[livi_field] = value
+            with self._pending_lock:
+                _merge_field(self._pending, livi_field, value)
+            LOG.debug("Composite %s=%r (trigger: %s)", livi_field, value, vss_path)
 
     def _handle_vss_update(self, vss_path: str, raw_value: Any) -> None:
-        mapping_cfg = self._mappings.get(vss_path)
-        if mapping_cfg is None:
-            return
-        livi_field = mapping_cfg["liviField"]
-        try:
-            transformed = _transform(raw_value, mapping_cfg)
-        except Exception as exc:  # noqa: BLE001
-            LOG.warning("Transform failed for %s=%r: %s", vss_path, raw_value, exc)
-            return
-        if transformed is None and not mapping_cfg.get("sendNone", False):
-            return
-        with self._pending_lock:
-            _merge_field(self._pending, livi_field, transformed)
-        LOG.debug("VSS %s=%r → LIVI %s=%r", vss_path, raw_value, livi_field, transformed)
+        self._vss_state[vss_path] = raw_value
+        self._apply_simple_mappings(vss_path, raw_value)
+        self._apply_composites(vss_path)
 
-    # -- push loop --------------------------------------------------------
+    # -- push loop ------------------------------------------------------
 
     def _push_loop(self) -> None:
         while True:
@@ -230,19 +323,23 @@ class Bridge:
             payload.setdefault("ts", int(time.time() * 1000))
             self._livi.push(payload)
 
-    # -- run --------------------------------------------------------------
+    # -- run ------------------------------------------------------------
 
     def run(self) -> None:
-        if not self._mappings:
-            LOG.error("No mappings configured — nothing to bridge.")
+        paths = self.subscribed_paths()
+        if not paths:
+            LOG.error("No mappings or composites configured — nothing to bridge.")
             return
 
         # Connect to LIVI first (non-fatal if it isn't up yet — keeps retrying).
         threading.Thread(target=self._livi.connect_forever, daemon=True).start()
         threading.Thread(target=self._push_loop, daemon=True).start()
 
-        paths = list(self._mappings.keys())
-        LOG.info("Subscribing to %d VSS path(s) on %s:%d", len(paths), self._kuksa_host, self._kuksa_port)
+        LOG.info(
+            "Subscribing to %d VSS path(s) on %s:%d (%d mapping(s), %d composite(s))",
+            len(paths), self._kuksa_host, self._kuksa_port,
+            sum(len(v) for v in self._mappings.values()), len(self._composites),
+        )
 
         with VSSClient(self._kuksa_host, self._kuksa_port) as client:
             if self._send_initial_snapshot:

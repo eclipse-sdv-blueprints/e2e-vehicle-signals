@@ -29,24 +29,6 @@ push:
   sendInitialSnapshot: true
 
 mappings:
-  # ── Blinker / turn indicator ────────────────────────────────────────────────
-  # LIVI exposes a single `turn` enum ('none' | 'left' | 'right').
-  # Each VSS indicator boolean is mapped independently; the bridge sends the
-  # last non-'none' value first, then the 'none' clear-out on the opposite edge.
-  - vssPath: Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
-    liviField: turn
-    type: string
-    enumMap:
-      true: "left"
-      false: "none"
-
-  - vssPath: Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
-    liviField: turn
-    type: string
-    enumMap:
-      true: "right"
-      false: "none"
-
   # ── Brake light ─────────────────────────────────────────────────────────────
   # VSS string enum INACTIVE / ACTIVE / ADAPTIVE → LIVI `hazards` boolean
   # (ADAPTIVE = emergency-braking ⇒ hazards on; ACTIVE = normal brake).
@@ -66,20 +48,85 @@ mappings:
     liviField: driverId
     type: string
 
+  # ── Fleet Management telemetry (csv-provider replay) ───────────────────────
+  # 1:1 mirror of every signal in
+  # external/fleet-management/csv-provider/signalsFmsRecording.csv.
+  # See "Fleet Management telemetry signals" in docs/website/device-ivi-livi.md
+  # for the routing table and rationale per field.
+
+  - vssPath: Vehicle.VehicleIdentification.VIN
+    liviField: vin
+    type: string
+
+  - vssPath: Vehicle.Speed
+    liviField: speedKph
+    type: float
+
+  # Tachograph reports km/h; LIVI's gps.speedMs is metres / second.
+  - vssPath: Vehicle.Tachograph.VehicleSpeed
+    liviField: gps.speedMs
+    type: float
+    scale: 0.27778
+
+  - vssPath: Vehicle.Powertrain.CombustionEngine.Speed
+    liviField: rpm
+    type: int
+
+  - vssPath: Vehicle.Powertrain.FuelSystem.Tank.First.RelativeLevel
+    liviField: fuelPct
+    type: float
+
+  - vssPath: Vehicle.Powertrain.CombustionEngine.DieselExhaustFluid.Level
+    liviField: defLevelPct
+    type: float
+
+  - vssPath: Vehicle.Powertrain.CombustionEngine.EngineHours
+    liviField: engineHours
+    type: float
+
+  - vssPath: Vehicle.Chassis.ParkingBrake.IsEngaged
+    liviField: parkingBrake
+    type: bool
+
+  - vssPath: Vehicle.Exterior.AirTemperature
+    liviField: ambientC
+    type: float
+
+  # VSS TraveledDistanceHighRes is metres (5 m resolution) → LIVI odometer km.
+  - vssPath: Vehicle.TraveledDistanceHighRes
+    liviField: odometerKm
+    type: float
+    scale: 0.001
+
+  - vssPath: Vehicle.CurrentOverallWeight
+    liviField: weightKg
+    type: float
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver1.WorkingState
+    liviField: driver1State
+    type: string
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver2.WorkingState
+    liviField: driver2State
+    type: string
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver1.IsCardPresent
+    liviField: driver1CardPresent
+    type: bool
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver2.IsCardPresent
+    liviField: driver2CardPresent
+    type: bool
+
   # ── Optional: vehicle motion / cluster basics ──────────────────────────────
   # Enable these once the corresponding VSS signals are produced (e.g. by a
   # csv-provider or the kuksa-can-provider). They map 1:1 to LIVI cluster
   # widgets according to TelemetryPayload.
-  # - { vssPath: Vehicle.Speed,                                 liviField: speedKph,     type: float }
-  # - { vssPath: Vehicle.Powertrain.CombustionEngine.Speed,     liviField: rpm,          type: int }
   # - { vssPath: Vehicle.Powertrain.Transmission.SelectedGear,  liviField: gear }
-  # - { vssPath: Vehicle.Powertrain.FuelSystem.Level,           liviField: fuelPct,      type: float }
   # - { vssPath: Vehicle.Powertrain.FuelSystem.Range,           liviField: rangeKm,      type: float, scale: 0.001 }
   # - { vssPath: Vehicle.CurrentLocation.Latitude,              liviField: gps.lat,      type: float }
   # - { vssPath: Vehicle.CurrentLocation.Longitude,             liviField: gps.lng,      type: float }
   # - { vssPath: Vehicle.CurrentLocation.Altitude,              liviField: gps.alt,      type: float }
   # - { vssPath: Vehicle.CurrentLocation.Heading,               liviField: gps.heading,  type: float }
-  # - { vssPath: Vehicle.Exterior.AirTemperature,               liviField: ambientC,     type: float }
   # - { vssPath: Vehicle.Powertrain.CombustionEngine.ECT,       liviField: coolantC,     type: float }
   # - { vssPath: Vehicle.LowVoltageBattery.CurrentVoltage,      liviField: batteryV,     type: float }
-  # - { vssPath: Vehicle.TraveledDistance,                      liviField: odometerKm,   type: float, scale: 0.001 }

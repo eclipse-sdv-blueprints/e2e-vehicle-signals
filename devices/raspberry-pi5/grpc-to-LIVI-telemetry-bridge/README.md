@@ -15,9 +15,7 @@ python bridge.py --config ../ankaios/grpc-livi.yaml --log-level INFO
 
 ```bash
 docker build -t kuksa-livi-bridge .
-docker run --rm --net=host \
-  -v $(pwd)/../ankaios/grpc-livi.yaml:/config/grpc-livi.yaml:ro \
-  kuksa-livi-bridge --config /config/grpc-livi.yaml
+docker run --rm --net=host -v $(pwd)/../ankaios/grpc-livi.yaml:/config/grpc-livi.yaml:ro   kuksa-livi-bridge --config /config/grpc-livi.yaml
 ```
 
 The published image is available at `ghcr.io/<owner>/e2e-vehicle-signals/kuksa-livi-bridge:main` (built by the [`publish-kuksa-livi-bridge`](../../../.github/workflows/publish-kuksa-livi-bridge.yml) workflow).
@@ -68,6 +66,8 @@ Top-level keys:
 ```yaml
 kuksa:
   target: "localhost:55555"
+  reconnectDelaySec: 2.0       # initial back-off when the databroker is unreachable
+  reconnectDelayMaxSec: 30.0   # capped exponential back-off between retries
 livi:
   url: "ws://192.168.88.110:4000"
 push:
@@ -78,3 +78,11 @@ mappings:
     liviField: speedKph
     type: float
 ```
+
+The bridge **never exits** because the databroker isn't up yet — it logs
+`Kuksa connection lost (…) — retrying in Xs`, sleeps with an exponential
+back-off capped at `reconnectDelayMaxSec`, and reconnects (re-sending the
+initial snapshot on every successful reconnect). The same applies if the
+gRPC stream drops mid-run. This mirrors the behaviour of the LIVI Socket.IO
+client, so the bridge can be started in any order relative to the databroker
+and LIVI head unit.

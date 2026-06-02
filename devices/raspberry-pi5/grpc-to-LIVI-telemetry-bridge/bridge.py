@@ -219,6 +219,11 @@ class Bridge:
         self._push_interval = float(push_cfg.get("intervalMs", 250)) / 1000.0
         self._send_initial_snapshot = bool(push_cfg.get("sendInitialSnapshot", True))
 
+        # gRPC reconnect tuning — same idea as the LIVI Socket.IO client:
+        # never give up, just back off and keep retrying.
+        self._kuksa_reconnect_initial = float(kuksa_cfg.get("reconnectDelaySec", 2.0))
+        self._kuksa_reconnect_max = float(kuksa_cfg.get("reconnectDelayMaxSec", 30.0))
+
         # vssPath -> list of mapping configs (multiple mappings per path allowed)
         self._mappings: Dict[str, List[Dict[str, Any]]] = {}
         for mapping in config.get("mappings", []):
@@ -341,21 +346,48 @@ class Bridge:
             sum(len(v) for v in self._mappings.values()), len(self._composites),
         )
 
-        with VSSClient(self._kuksa_host, self._kuksa_port) as client:
-            if self._send_initial_snapshot:
-                try:
-                    snapshot = client.get_current_values(paths)
-                    for path, datapoint in snapshot.items():
-                        if datapoint is not None:
-                            self._handle_vss_update(path, datapoint.value)
-                except Exception as exc:  # noqa: BLE001
-                    LOG.warning("Initial snapshot failed: %s", exc)
+        # Outer reconnect loop — mirrors LiviClient.connect_forever(): wait for
+        # the databroker to come up, and recover from any mid-stream drop.
+        delay = self._kuksa_reconnect_initial
+        while True:
+            try:
+                with VSSClient(self._kuksa_host, self._kuksa_port) as client:
+                    LOG.info(
+                        "Connected to Kuksa Databroker at %s:%d",
+                        self._kuksa_host, self._kuksa_port,
+                    )
+                    delay = self._kuksa_reconnect_initial  # reset backoff
 
-            for updates in client.subscribe_current_values(paths):
-                for path, datapoint in updates.items():
-                    if datapoint is None:
-                        continue
-                    self._handle_vss_update(path, datapoint.value)
+                    if self._send_initial_snapshot:
+                        try:
+                            snapshot = client.get_current_values(paths)
+                            for path, datapoint in snapshot.items():
+                                if datapoint is not None:
+                                    self._handle_vss_update(path, datapoint.value)
+                        except Exception as exc:  # noqa: BLE001
+                            LOG.warning("Initial snapshot failed: %s", exc)
+
+                    # Inner loop — blocks here as long as the stream is healthy.
+                    for updates in client.subscribe_current_values(paths):
+                        for path, datapoint in updates.items():
+                            if datapoint is None:
+                                continue
+                            self._handle_vss_update(path, datapoint.value)
+
+                # Generator exhausted cleanly (rare) — treat as a reconnect.
+                LOG.warning("Kuksa subscription ended; reconnecting…")
+
+            except KeyboardInterrupt:
+                LOG.info("Shutdown requested.")
+                return
+            except Exception as exc:  # noqa: BLE001
+                LOG.warning(
+                    "Kuksa connection lost (%s) — retrying in %.1fs",
+                    exc, delay,
+                )
+
+            time.sleep(delay)
+            delay = min(delay * 2.0, self._kuksa_reconnect_max)
 
 
 def main() -> None:

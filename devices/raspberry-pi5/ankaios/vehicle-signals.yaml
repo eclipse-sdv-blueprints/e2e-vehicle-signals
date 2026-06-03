@@ -22,7 +22,7 @@ workloads:
       - mountPoint: "/config/grpc-mqtt.yaml"
         data: "{{grpc_mqtt_config}}"
     runtimeConfig: |
-      image: ghcr.io/chheis/eclipse-sdv-e2e-demo-blueprint/grpc-mqtt-bridge:main
+      image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main
       commandArgs: ["--config", "/config/grpc-mqtt.yaml"]
       commandOptions: ["--net=host"]
   kuksa-livi-bridge:
@@ -35,7 +35,7 @@ workloads:
       - mountPoint: "/config/grpc-livi.yaml"
         data: "{{grpc_livi_config}}"
     runtimeConfig: |
-      image: ghcr.io/chheis/eclipse-sdv-e2e-demo-blueprint/kuksa-livi-bridge:main
+      image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-livi-bridge:main
       commandArgs: ["--config", "/config/grpc-livi.yaml"]
       commandOptions: ["--net=host"]
   kuksa-can-provider:

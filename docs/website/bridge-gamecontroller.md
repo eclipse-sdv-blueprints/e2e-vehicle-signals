@@ -5,9 +5,18 @@ title: Kuksa → Virtual Gamepad Bridge
 
 # Kuksa → Virtual Gamepad Bridge
 
-The **Kuksa-to-Gamepad bridge** turns live VSS signals into virtual Xbox 360 controller input on a Windows host, so any XInput-aware game (such as **SuperTux**) can be driven by the same demo signals the rest of the blueprint uses.
+The **Kuksa-to-Gamepad bridge** turns live VSS signals into a virtual Xbox‑style controller, so any game that accepts a standard gamepad (such as **SuperTux**) can be driven by the same demo signals the rest of the blueprint uses.
 
 It complements the [IVI Head Unit (LIVI)](./device-ivi-livi.md) and the [MQTT-to-Kuksa gRPC Bridge](./bridge-mqtt-grpc.md) as a third consumer of the central databroker.
+
+Two platform-specific entry points are provided — pick the one matching the host where the game runs:
+
+| Script | Platform | Backend |
+| --- | --- | --- |
+| `controller-windows.py` | Windows 10 / 11 | [`vgamepad`](https://pypi.org/project/vgamepad/) + [ViGEmBus](https://github.com/nefarius/ViGEmBus) (virtual Xbox 360) |
+| `controller-linux.py`   | Linux           | [`evdev`](https://python-evdev.readthedocs.io/) + `/dev/uinput` (Xbox-style HID) |
+
+Both scripts share the same CLI flags, the same VSS mapping, and the same exponential‑backoff reconnect logic.
 
 Source: [`devices/ivi/grpc-to-gamecontroller/`](https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals/tree/main/devices/ivi/grpc-to-gamecontroller)
 
@@ -18,12 +27,12 @@ flowchart LR
     subgraph PI5["Raspberry Pi 5 (Ankaios)"]
         KDB[Kuksa Databroker<br/>gRPC :55555]
     end
-    subgraph WIN["Windows gaming host"]
-        CTRL[controller.py<br/>VSSClient + vgamepad]
-        VGEM[ViGEmBus<br/>virtual Xbox 360 device]
-        GAME[SuperTux / XInput game]
-        CTRL -->|XUSB_BUTTON.*| VGEM
-        VGEM -.XInput.-> GAME
+    subgraph HOST["Gaming host (Windows or Linux)"]
+        CTRL[controller-windows.py<br/>or controller-linux.py]
+        VDEV[Virtual gamepad<br/>ViGEmBus / uinput]
+        GAME[SuperTux / any pad-aware game]
+        CTRL -->|button press / release| VDEV
+        VDEV -.XInput / evdev.-> GAME
     end
     KDB -->|get_current_values| CTRL
 ```
@@ -40,12 +49,14 @@ Edge-detected: a press / release is only sent when a signal actually changes, so
 
 ## Requirements
 
-- **Windows 10/11** — `vgamepad` is backed by [ViGEmBus](https://github.com/nefarius/ViGEmBus), which is Windows-only.
-- **Python 3.10+**
-- **ViGEmBus driver** installed (one-time, from the link above).
+- **Python 3.10+** on the host running the bridge.
 - Network reach to the Pi 5's Kuksa Databroker (default `192.168.88.100:55555`).
+- **Windows variant:** the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) installed (one-time, reboot required).
+- **Linux variant:** the `uinput` kernel module loaded and `/dev/uinput` writable by the running user (see [Linux setup](#linux-setup) below).
 
 ## Install
+
+### Windows
 
 ```powershell
 cd devices\ivi\grpc-to-gamecontroller
@@ -53,6 +64,31 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
+
+### Linux
+
+```bash
+cd devices/ivi/grpc-to-gamecontroller
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+`requirements.txt` uses PEP‑508 platform markers, so `vgamepad` is only pulled in on Windows and `evdev` only on Linux.
+
+### Linux setup
+
+Allow your user to open `/dev/uinput` without `sudo`:
+
+```bash
+sudo modprobe uinput
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"' \
+  | sudo tee /etc/udev/rules.d/99-uinput.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+sudo usermod -aG input "$USER"   # log out + back in for this to take effect
+```
+
+To persist the `uinput` module across reboots, add it to `/etc/modules-load.d/uinput.conf`.
 
 ### Install SuperTux (demo target game)
 
@@ -69,13 +105,23 @@ On Windows:
 winget install SuperTuxTeam.SuperTux
 ```
 
-Inside SuperTux, open **Options → Controls → Joystick** once and re-bind actions to the `Xbox 360 Controller for Windows` device so the D-Pad and `X` button are recognised.
+Inside SuperTux, open **Options → Controls → Joystick** once and re-bind actions to the virtual gamepad device (it appears as `Xbox 360 Controller for Windows` on Windows and `Kuksa Virtual Gamepad` on Linux). Confirm the D-Pad and `X` button are detected.
 
 ## Run
 
+Windows:
+
 ```powershell
-python controller.py --host 192.168.88.100 --port 55555 --verbose
+python controller-windows.py --host 192.168.88.100 --port 55555 --verbose
 ```
+
+Linux:
+
+```bash
+python controller-linux.py --host 192.168.88.100 --port 55555 --verbose
+```
+
+CLI flags (identical for both scripts):
 
 | Flag | Default | Description |
 | --- | --- | --- |
@@ -99,10 +145,21 @@ This mirrors the connection behaviour of the [Kuksa-to-LIVI Telemetry Bridge](./
 
 ## Troubleshooting
 
+### Windows
+
 - **`OSError: ViGEmBus is not installed`** — install the driver from <https://github.com/nefarius/ViGEmBus/releases> and reboot.
-- **Gamepad detected but no input in-game** — bind the gamepad inside the game's controls menu; some games need the controller plugged in *before* startup.
-- **Connect log loop with no recovery** — confirm the Pi 5's databroker is exposing `:55555` on the LAN (`ss -ltn | grep 55555`) and that the Windows host can reach it (`Test-NetConnection 192.168.88.100 -Port 55555`).
 - **Buttons stay stuck after an abnormal exit** — re-run the script and exit cleanly with `Ctrl-C` (clean exit calls `gamepad.reset()`), or unplug/replug the virtual device via Device Manager.
+
+### Linux
+
+- **`PermissionError: [Errno 13] Permission denied: '/dev/uinput'`** — apply the udev rule from [Linux setup](#linux-setup), or run with `sudo` as a quick check. Re-login after `usermod -aG input`.
+- **`FileNotFoundError: /dev/uinput`** — load the kernel module: `sudo modprobe uinput`.
+- **Game doesn't see a gamepad** — verify the virtual device exists (`ls /dev/input/by-id/ | grep -i kuksa` or `evtest`) and that SDL / the game picks it up.
+
+### Both
+
+- **Gamepad detected but no input in-game** — bind the gamepad inside the game's controls menu; some games need the controller plugged in *before* startup.
+- **Connect log loop with no recovery** — confirm the Pi 5's databroker is exposing `:55555` on the LAN (`ss -ltn | grep 55555`) and that the host can reach it (`Test-NetConnection 192.168.88.100 -Port 55555` on Windows, `nc -zv 192.168.88.100 55555` on Linux).
 
 ## Related pages
 

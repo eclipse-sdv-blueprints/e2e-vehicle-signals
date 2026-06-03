@@ -137,7 +137,7 @@ mappings:
 # matching when block wins. Missing VSS inputs are treated as "no match".
 # ------------------------------------------------------------------------------
 composites:
-  # LIVI 	urn enum derived jointly from the two indicator booleans so that
+  # LIVI `turn` enum derived jointly from the two indicator booleans so that
   # neither side clobbers the other. Left wins if both are active (edge case).
   - liviField: turn
     inputs:

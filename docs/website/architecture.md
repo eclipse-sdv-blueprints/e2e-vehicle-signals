@@ -191,4 +191,4 @@ graph LR
     end
 ```
 
-All Wi-Fi devices connect to the same network. The Raspberry Pi 5 bridges Wi-Fi (MQTT) and CAN (SocketCAN) traffic, and exposes a wired **Ethernet** link to the **Raspberry Pi 4 IVI** head unit so that the Kuksa-to-LIVI telemetry bridge can reach the LIVI telemetry CLI without depending on the Wi-Fi network. The IVI Pi 4 additionally offers its own **Wi-Fi and Bluetooth** stack toward an Android smartphone for wireless Android Auto. The CAN bus operates at **500 kbit/s** with an 8 MHz oscillator on the MCP2515 module.
+All Wi-Fi devices connect to the same network. The Raspberry Pi 5 bridges Wi-Fi (MQTT) and CAN (SocketCAN) traffic, and exposes a wired **Ethernet** link to the **Raspberry Pi 4 IVI** head unit so that the Kuksa-to-LIVI telemetry bridge can reach LIVI's telemetry Socket.IO server without depending on the Wi-Fi network. The IVI Pi 4 additionally offers its own **Wi-Fi and Bluetooth** stack toward an Android smartphone for wireless Android Auto. The CAN bus operates at **500 kbit/s** with an 8 MHz oscillator on the MCP2515 module.

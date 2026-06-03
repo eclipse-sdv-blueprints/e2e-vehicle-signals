@@ -19,10 +19,13 @@ Run as a regular user once /dev/uinput is writable:
   python controller-linux.py --host 192.168.88.100 --port 55555 --verbose
 """
 
+import os
+import sys
 import time
 from kuksa_client.grpc import VSSClient
 
 from evdev import UInput, AbsInfo, ecodes as e
+from evdev.uinput import UInputError
 
 
 # VSS paths we care about
@@ -92,6 +95,39 @@ def _make_gamepad():
         product=XBOX360_PRODUCT_ID,
         version=0x0110,
     )
+
+
+_UINPUT_PERMISSION_HINT = """
+Cannot open /dev/uinput for writing.
+
+Pick one of the following:
+
+  1. Run this script with sudo (quick check):
+       sudo python controller-linux.py ...
+
+  2. Grant your user permanent access (recommended):
+       sudo modprobe uinput
+       echo 'KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"' \\
+         | sudo tee /etc/udev/rules.d/99-uinput.rules
+       sudo udevadm control --reload-rules && sudo udevadm trigger
+       sudo usermod -aG input "$USER"
+     Then log out and back in (or reboot) for the new group to take effect.
+
+If /dev/uinput does not exist at all, load the kernel module:
+       sudo modprobe uinput
+(persist with `echo uinput | sudo tee /etc/modules-load.d/uinput.conf`)
+""".strip()
+
+
+def _make_gamepad_or_exit():
+    try:
+        return _make_gamepad()
+    except (PermissionError, UInputError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        if not os.path.exists("/dev/uinput"):
+            print("ERROR: /dev/uinput is missing — run `sudo modprobe uinput`.", file=sys.stderr)
+        print(_UINPUT_PERMISSION_HINT, file=sys.stderr)
+        sys.exit(1)
 
 
 def _reset_gamepad(gamepad):
@@ -174,7 +210,7 @@ def fetch_and_update_control(
     loop — the script will wait until the databroker comes up and will
     automatically reconnect if the connection drops mid-run.
     """
-    gamepad = _make_gamepad()
+    gamepad = _make_gamepad_or_exit()
     print(f"Created virtual gamepad: {gamepad.device.path}", flush=True)
 
     delay = reconnect_delay

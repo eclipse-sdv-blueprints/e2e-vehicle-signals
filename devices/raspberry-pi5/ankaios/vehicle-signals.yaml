@@ -1,3 +1,15 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
 apiVersion: v1
 workloads:
   mosquitto-broker:
@@ -22,8 +34,21 @@ workloads:
       - mountPoint: "/config/grpc-mqtt.yaml"
         data: "{{grpc_mqtt_config}}"
     runtimeConfig: |
-      image: ghcr.io/chheis/eclipse-sdv-e2e-demo-blueprint/grpc-mqtt-bridge:main
+      image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main
       commandArgs: ["--config", "/config/grpc-mqtt.yaml"]
+      commandOptions: ["--net=host"]
+  kuksa-livi-bridge:
+    runtime: podman
+    agent: agent_B
+    restartPolicy: ALWAYS
+    configs:
+      grpc_livi_config: grpc_livi_config
+    files:
+      - mountPoint: "/config/grpc-livi.yaml"
+        data: "{{grpc_livi_config}}"
+    runtimeConfig: |
+      image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-livi-bridge:main
+      commandArgs: ["--config", "/config/grpc-livi.yaml"]
       commandOptions: ["--net=host"]
   kuksa-can-provider:
     runtime: podman
@@ -93,6 +118,54 @@ configs:
             - path: "Vehicle.Driver.Identifier.Subject"
               type: "string"
               jsonPointer: "/Vehicle.Driver.Identifier.Subject"
+  grpc_livi_config: |
+    kuksa:
+      target: "localhost:55555"
+    livi:
+      url: "ws://192.168.88.110:4000"
+    push:
+      intervalMs: 250
+      sendInitialSnapshot: true
+    mappings:
+      - vssPath: Vehicle.Body.Lights.Brake.IsActive
+        liviField: hazards
+        type: bool
+        enumMap:
+          INACTIVE: false
+          ACTIVE: false
+          ADAPTIVE: true
+      - vssPath: Vehicle.Driver.Identifier.Subject
+        liviField: driverId
+        type: string
+      # Fleet Management telemetry (csv-provider replay)
+      - { vssPath: Vehicle.VehicleIdentification.VIN,                              liviField: vin,                type: string }
+      - { vssPath: Vehicle.Speed,                                                  liviField: speedKph,           type: float }
+      - { vssPath: Vehicle.Tachograph.VehicleSpeed,                                liviField: gps.speedMs,        type: float,  scale: 0.27778 }
+      - { vssPath: Vehicle.Powertrain.CombustionEngine.Speed,                      liviField: rpm,                type: int }
+      - { vssPath: Vehicle.Powertrain.FuelSystem.Tank.First.RelativeLevel,         liviField: fuelPct,            type: float }
+      - { vssPath: Vehicle.Powertrain.CombustionEngine.DieselExhaustFluid.Level,   liviField: defLevelPct,        type: float }
+      - { vssPath: Vehicle.Powertrain.CombustionEngine.EngineHours,                liviField: engineHours,        type: float }
+      - { vssPath: Vehicle.Chassis.ParkingBrake.IsEngaged,                         liviField: parkingBrake,       type: bool }
+      - { vssPath: Vehicle.Exterior.AirTemperature,                                liviField: ambientC,           type: float }
+      - { vssPath: Vehicle.TraveledDistanceHighRes,                                liviField: odometerKm,         type: float,  scale: 0.001 }
+      - { vssPath: Vehicle.CurrentOverallWeight,                                   liviField: weightKg,           type: float }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver1.WorkingState,                 liviField: driver1State,       type: string }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver2.WorkingState,                 liviField: driver2State,       type: string }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver1.IsCardPresent,                liviField: driver1CardPresent, type: bool }
+      - { vssPath: Vehicle.Tachograph.Driver.Driver2.IsCardPresent,                liviField: driver2CardPresent, type: bool }
+    composites:
+      - liviField: turn
+        inputs:
+          - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+          - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+        rules:
+          - when:
+              Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling: true
+            value: left
+          - when:
+              Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true
+            value: right
+        default: none
   website_config: |
     {
       "probe_timeout_seconds": 1.2,

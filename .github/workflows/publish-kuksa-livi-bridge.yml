@@ -10,7 +10,7 @@
 # *
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
-name: Publish fleet-analysis-backend image
+name: Publish kuksa-livi-bridge image
 
 on:
   workflow_dispatch:
@@ -43,12 +43,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/fleet-analysis-backend
+          images: ghcr.io/${{ github.repository }}/kuksa-livi-bridge
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: devices/backend-fleet-analysis-java
+          context: devices/raspberry-pi5/grpc-to-LIVI-telemetry-bridge
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

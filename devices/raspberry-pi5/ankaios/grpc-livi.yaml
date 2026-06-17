@@ -1,0 +1,153 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+# Configuration for the Kuksa-to-LIVI Telemetry Bridge.
+#
+# Subscribes to the listed VSS paths on the Kuksa Databroker (gRPC) and pushes
+# transformed values into the LIVI head unit via Socket.IO `telemetry:push`.
+# LIVI payload contract: https://github.com/f-io/LIVI/blob/main/src/main/shared/types/Telemetry.ts
+
+kuksa:
+  target: "localhost:55555"
+
+livi:
+  # LIVI head unit on the IVI Raspberry Pi 4, reachable over the wired Ethernet link.
+  url: "ws://192.168.88.110:4000"
+
+push:
+  intervalMs: 250
+  sendInitialSnapshot: true
+
+mappings:
+  # â”€â”€ Brake light â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # VSS string enum INACTIVE / ACTIVE / ADAPTIVE â†’ LIVI `hazards` boolean
+  # (ADAPTIVE = emergency-braking â‡’ hazards on; ACTIVE = normal brake).
+  - vssPath: Vehicle.Body.Lights.Brake.IsActive
+    liviField: hazards
+    type: bool
+    enumMap:
+      INACTIVE: false
+      ACTIVE: false
+      ADAPTIVE: true
+
+  # â”€â”€ Driver identity (RFID) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # LIVI's TelemetryPayload has an open `[key: string]: unknown` extension
+  # point â€” we expose the RFID UID as a custom `driverId` field so the LIVI
+  # dashboard can surface "current driver" without changing the upstream type.
+  - vssPath: Vehicle.Driver.Identifier.Subject
+    liviField: driverId
+    type: string
+
+  # â”€â”€ Fleet Management telemetry (csv-provider replay) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # 1:1 mirror of every signal in
+  # external/fleet-management/csv-provider/signalsFmsRecording.csv.
+  # See "Fleet Management telemetry signals" in docs/website/device-ivi-livi.md
+  # for the routing table and rationale per field.
+
+  - vssPath: Vehicle.VehicleIdentification.VIN
+    liviField: vin
+    type: string
+
+  - vssPath: Vehicle.Speed
+    liviField: speedKph
+    type: float
+
+  # Tachograph reports km/h; LIVI's gps.speedMs is metres / second.
+  - vssPath: Vehicle.Tachograph.VehicleSpeed
+    liviField: gps.speedMs
+    type: float
+    scale: 0.27778
+
+  - vssPath: Vehicle.Powertrain.CombustionEngine.Speed
+    liviField: rpm
+    type: int
+
+  - vssPath: Vehicle.Powertrain.FuelSystem.Tank.First.RelativeLevel
+    liviField: fuelPct
+    type: float
+
+  - vssPath: Vehicle.Powertrain.CombustionEngine.DieselExhaustFluid.Level
+    liviField: defLevelPct
+    type: float
+
+  - vssPath: Vehicle.Powertrain.CombustionEngine.EngineHours
+    liviField: engineHours
+    type: float
+
+  - vssPath: Vehicle.Chassis.ParkingBrake.IsEngaged
+    liviField: parkingBrake
+    type: bool
+
+  - vssPath: Vehicle.Exterior.AirTemperature
+    liviField: ambientC
+    type: float
+
+  # VSS TraveledDistanceHighRes is metres (5 m resolution) â†’ LIVI odometer km.
+  - vssPath: Vehicle.TraveledDistanceHighRes
+    liviField: odometerKm
+    type: float
+    scale: 0.001
+
+  - vssPath: Vehicle.CurrentOverallWeight
+    liviField: weightKg
+    type: float
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver1.WorkingState
+    liviField: driver1State
+    type: string
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver2.WorkingState
+    liviField: driver2State
+    type: string
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver1.IsCardPresent
+    liviField: driver1CardPresent
+    type: bool
+
+  - vssPath: Vehicle.Tachograph.Driver.Driver2.IsCardPresent
+    liviField: driver2CardPresent
+    type: bool
+
+  # â”€â”€ Optional: vehicle motion / cluster basics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # Enable these once the corresponding VSS signals are produced (e.g. by a
+  # csv-provider or the kuksa-can-provider). They map 1:1 to LIVI cluster
+  # widgets according to TelemetryPayload.
+  # - { vssPath: Vehicle.Powertrain.Transmission.SelectedGear,  liviField: gear }
+  # - { vssPath: Vehicle.Powertrain.FuelSystem.Range,           liviField: rangeKm,      type: float, scale: 0.001 }
+  # - { vssPath: Vehicle.CurrentLocation.Latitude,              liviField: gps.lat,      type: float }
+  # - { vssPath: Vehicle.CurrentLocation.Longitude,             liviField: gps.lng,      type: float }
+  # - { vssPath: Vehicle.CurrentLocation.Altitude,              liviField: gps.alt,      type: float }
+  # - { vssPath: Vehicle.CurrentLocation.Heading,               liviField: gps.heading,  type: float }
+  # - { vssPath: Vehicle.Powertrain.CombustionEngine.ECT,       liviField: coolantC,     type: float }
+  # - { vssPath: Vehicle.LowVoltageBattery.CurrentVoltage,      liviField: batteryV,     type: float }
+
+# ------------------------------------------------------------------------------
+# Composites — derived LIVI fields computed from multiple VSS inputs.
+# Rules are evaluated top-to-bottom against the latest VSS snapshot; the first
+# matching when block wins. Missing VSS inputs are treated as "no match".
+# ------------------------------------------------------------------------------
+composites:
+  # LIVI `turn` enum derived jointly from the two indicator booleans so that
+  # neither side clobbers the other. Left wins if both are active (edge case).
+  - liviField: turn
+    inputs:
+      - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+      - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+    rules:
+      - when:
+          Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling: true
+        value: left
+      - when:
+          Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true
+        value: right
+    default: none

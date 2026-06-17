@@ -22,6 +22,13 @@ graph TB
         KDB[Kuksa Databroker 0.6.0<br/>:55555]
         CAN_PROV[Kuksa CAN Provider<br/>dbc2val + val2dbc]
         SOCK["SocketCAN - can0"]
+        LIVI_BRIDGE[Kuksa-to-LIVI Telemetry Bridge]
+    end
+
+    subgraph IVI["Raspberry Pi 4 - IVI Head Unit"]
+        LIVI["LIVI Head Unit<br/>Electron App<br/>7-inch Touchscreen"]
+        LIVI_CLI["LIVI Telemetry CLI<br/>local IPC/socket"]
+        PHONE["Android Smartphone<br/>Android Auto wireless"]
     end
 
     subgraph FMStack["Raspberry Pi 5 - Fleet Management Stack"]
@@ -54,6 +61,11 @@ graph TB
     SOCK --> CAN_PROV
     CAN_PROV -->|current values| KDB
 
+    KDB -->|VSS subscription<br/>gRPC| LIVI_BRIDGE
+    LIVI_BRIDGE -->|Ethernet<br/>telemetry CLI push| LIVI_CLI
+    LIVI_CLI --> LIVI
+    LIVI <-->|Wi-Fi + Bluetooth<br/>Android Auto| PHONE
+
     KDB --> FWD
     FWD -->|uProtocol| ZENOH
     ZENOH --> CONS
@@ -79,6 +91,7 @@ All in-vehicle signal workloads are managed as Podman containers by **Eclipse An
 | `grpc-mqtt-bridge` | `grpc-mqtt-bridge:main` | Translates MQTT JSON payloads to Kuksa gRPC `Val/Set` updates |
 | `kuksa-databroker` | `kuksa-databroker:0.6.0` | Central VSS signal store |
 | `kuksa-can-provider` | `can-provider:0.4.4` | Bidirectional CAN ↔ VSS mapping via DBC files |
+| `kuksa-livi-bridge` | `kuksa-livi-bridge:main` | Subscribes to VSS signals on the Kuksa Databroker and pushes them as telemetry frames to the LIVI head unit on the IVI Raspberry Pi 4 over Ethernet |
 | `pi5-demo-website` | `pi5-demo-website:latest` | Live architecture / signal-flow dashboard at `:8090` |
 
 All workloads run with `--net=host` so they share the host network namespace and can reach each other at `localhost`.
@@ -130,6 +143,22 @@ The MCU sends `BlinkerStatus` frames on CAN ID `0x121` back to the Raspberry Pi.
 
 → **[Full device guide: LED Control ECU](./device-led-ecu)**
 
+### IVI Head Unit (Raspberry Pi 4 + LIVI)
+
+A dedicated **Raspberry Pi 4** with a **7" touchscreen** runs **Raspberry Pi OS** in kiosk mode hosting [LIVI](https://github.com/f-io/LIVI) — an open-source Apple CarPlay / Android Auto head unit built on Electron. It is wired to the rest of the demo via an **Ethernet** link to the Raspberry Pi 5, and it offers **Wi-Fi + Bluetooth** to pair with an **Android smartphone** for wireless Android Auto projection.
+
+Live vehicle signals are fed into LIVI via its **Telemetry CLI** (see `scripts/tools` in the LIVI repository, which pushes fields such as `speedKph`, `rpm`, `fuelPct`, `rangeKm`, `gps.lat`, `gps.lng`, etc. into the running app over local IPC/socket).
+
+A new Ankaios workload, the **Kuksa-to-LIVI Telemetry Bridge**, runs alongside the other signal workloads on the Raspberry Pi 5. Modelled after the existing MQTT-to-gRPC bridge, it:
+
+1. Subscribes to the relevant VSS branches on the Kuksa Databroker via gRPC.
+2. Maps each VSS signal to the corresponding LIVI telemetry field.
+3. Forwards the values to the LIVI Telemetry CLI on the IVI Pi 4 over the Ethernet link, throttled with a configurable repeat interval.
+
+This keeps LIVI fully decoupled from CAN/MQTT — it only consumes a clean telemetry stream that mirrors the canonical VSS state.
+
+→ **[Full device guide: IVI Head Unit (LIVI)](./device-ivi-livi)**
+
 ### ThreadX SOME/IP Extension (Optional)
 
 Two MXChip AZ3166 boards form a SOME/IP peer pair:
@@ -150,10 +179,16 @@ graph LR
         AZ1[AZ3166 #1]
         AZ2[AZ3166 #2]
     end
+    subgraph Eth["Ethernet Link"]
+        PI5 ---|Ethernet cable| PI4[Raspberry Pi 4<br/>IVI / LIVI<br/>192.168.88.110]
+    end
+    subgraph PhoneLink["IVI Wireless"]
+        PI4 ---|Wi-Fi + Bluetooth<br/>Android Auto| PHONE[Android Smartphone]
+    end
     subgraph CANBus["CAN Bus - 500 kbit/s"]
         PI5 ---|RS485 CAN Hat| CAN0[can0]
         CAN0 --- MCU1[MCU1 LED Control<br/>MCP2515]
     end
 ```
 
-All Wi-Fi devices connect to the same network. The Raspberry Pi 5 bridges Wi-Fi (MQTT) and CAN (SocketCAN) traffic. The CAN bus operates at **500 kbit/s** with an 8 MHz oscillator on the MCP2515 module.
+All Wi-Fi devices connect to the same network. The Raspberry Pi 5 bridges Wi-Fi (MQTT) and CAN (SocketCAN) traffic, and exposes a wired **Ethernet** link to the **Raspberry Pi 4 IVI** head unit so that the Kuksa-to-LIVI telemetry bridge can reach LIVI's telemetry Socket.IO server without depending on the Wi-Fi network. The IVI Pi 4 additionally offers its own **Wi-Fi and Bluetooth** stack toward an Android smartphone for wireless Android Auto. The CAN bus operates at **500 kbit/s** with an 8 MHz oscillator on the MCP2515 module.

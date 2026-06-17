@@ -86,7 +86,31 @@ Arduino LED ECU applies blinker/brake state
         → Available to all VSS subscribers (Fleet, UI, CLI)
 ```
 
-### 4. ThreadX SOME/IP Relay Path (Optional)
+### 4. IVI Telemetry Path — VSS to LIVI Dashboard (Optional)
+
+When the IVI Raspberry Pi 4 running [LIVI](https://github.com/f-io/LIVI) is connected via Ethernet, the **Kuksa-to-LIVI Telemetry Bridge** workload mirrors VSS state into the head unit:
+
+```
+Kuksa Databroker (VSS, gRPC)
+  → kuksa-livi-bridge subscribes via VSSClient.subscribe_current_values(...)
+    → enumMap / scale / offset / type cast per mapping
+      → batched every 250 ms into a TelemetryPayload JSON object
+        → Socket.IO emit "telemetry:push" to ws://<pi4-ivi>:4000
+          → LIVI merges into its telemetry store
+            → Dash widgets + Android Auto cluster re-render
+              → optionally projected to the paired Android phone over Wi-Fi/Bluetooth
+```
+
+The bridge handles **two independent signal families** in parallel:
+
+1. **In-vehicle demo signals** — `Vehicle.Body.Lights.*`, `Vehicle.Driver.Identifier.Subject`. Originate from the Joystick/RFID ECUs via MQTT → `grpc-mqtt-bridge` → Kuksa.
+2. **Fleet Management telemetry signals** — replayed from [`signalsFmsRecording.csv`](https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals/blob/main/external/fleet-management/csv-provider/signalsFmsRecording.csv) by the Fleet Management `csv-provider` directly into Kuksa. All 15 recorded signals (speed, RPM, fuel level, DEF level, engine hours, parking brake, ambient temperature, odometer, weight, VIN, and both tachograph driver working-states / card-presence flags) flow through the bridge and land in the corresponding LIVI `TelemetryPayload` field — see the full mapping table in **[IVI Head Unit (LIVI) → Fleet Management telemetry signals](./device-ivi-livi#fleet-management-telemetry-signals-csv-provider)**.
+
+Because the bridge subscribes to *current* values on Kuksa, both producers (MQTT-driven ECUs and the CSV replay) can run at the same time without coordination — every Kuksa write reaches LIVI through the same coalescing window.
+
+See **[IVI Head Unit (LIVI)](./device-ivi-livi)** for the full VSS → LIVI field mapping and configuration reference.
+
+### 5. ThreadX SOME/IP Relay Path (Optional)
 
 ```
 Mosquitto → AZ3166 Device 1 (MQTT subscriber)

@@ -1,0 +1,7 @@
+kuksa-client>=0.4.3
+
+# Windows-only — virtual Xbox 360 gamepad via ViGEmBus.
+vgamepad>=0.1.0; sys_platform == "win32"
+
+# Linux-only — virtual gamepad via /dev/uinput.
+evdev>=1.6.0; sys_platform == "linux"

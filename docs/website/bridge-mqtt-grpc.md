@@ -140,4 +140,5 @@ docker run --rm --net=host \
 - [Architecture](./architecture.md) — full workload table including this bridge.
 - [Communication Workflow](./communication-workflow.md) — end-to-end sequence including the MQTT → gRPC step.
 - [Signal Mapping](./signal-mapping.md) — VSS path catalogue and downstream consumers.
-- [IVI Head Unit (LIVI)](./device-ivi-livi.md) — sister bridge in the opposite direction (gRPC → Socket.IO).
+- [Kuksa-to-LIVI Telemetry Bridge](./bridge-kuksa-livi.md) — sister bridge in the opposite direction (gRPC → Socket.IO).
+- [IVI Head Unit (LIVI)](./device-ivi-livi.md) — Pi 4 device that hosts the LIVI dashboard.

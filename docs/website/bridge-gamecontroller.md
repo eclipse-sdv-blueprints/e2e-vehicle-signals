@@ -7,7 +7,7 @@ title: Kuksa → Virtual Gamepad Bridge
 
 The **Kuksa-to-Gamepad bridge** turns live VSS signals into a virtual Xbox‑style controller, so any game that accepts a standard gamepad (such as **SuperTux**) can be driven by the same demo signals the rest of the blueprint uses.
 
-It complements the [IVI Head Unit (LIVI)](./device-ivi-livi.md) and the [MQTT-to-Kuksa gRPC Bridge](./bridge-mqtt-grpc.md) as a third consumer of the central databroker.
+It complements the [Kuksa-to-LIVI Telemetry Bridge](./bridge-kuksa-livi.md) and the [MQTT-to-Kuksa gRPC Bridge](./bridge-mqtt-grpc.md) as a third consumer of the central databroker.
 
 Two platform-specific entry points are provided — pick the one matching the host where the game runs:
 
@@ -141,7 +141,7 @@ The bridge **never exits** because the databroker isn't up yet:
 - If the gRPC connection drops mid-run it logs `Kuksa connection lost (…) — retrying in Xs` and reconnects.
 - Between reconnects the virtual gamepad is reset, so a transient outage cannot leave the indicator D-Pad or the `X` button latched.
 
-This mirrors the connection behaviour of the [Kuksa-to-LIVI Telemetry Bridge](./device-ivi-livi.md), so the controller bridge can be started in any order relative to the databroker.
+This mirrors the connection behaviour of the [Kuksa-to-LIVI Telemetry Bridge](./bridge-kuksa-livi.md), so the controller bridge can be started in any order relative to the databroker.
 
 ## Troubleshooting
 
@@ -166,4 +166,5 @@ This mirrors the connection behaviour of the [Kuksa-to-LIVI Telemetry Bridge](./
 - [Architecture](./architecture.md)
 - [Signal Mapping](./signal-mapping.md)
 - [IVI Head Unit (LIVI)](./device-ivi-livi.md)
+- [Kuksa-to-LIVI Telemetry Bridge](./bridge-kuksa-livi.md)
 - [MQTT-to-Kuksa gRPC Bridge](./bridge-mqtt-grpc.md)

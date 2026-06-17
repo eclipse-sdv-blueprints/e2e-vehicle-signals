@@ -23,7 +23,10 @@ This page lists all hardware components needed to reproduce the full demo setup.
 
 | Qty | Component | Purpose | Notes |
 | --- | --- | --- | --- |
-| 1 | [Raspberry Pi 4 (Bundle)](https://www.raspberrypi.com/) | Secondary HPC / Fleet Analysis host | Placeholder for split deployment |
+| 1 | [Raspberry Pi 4 (Bundle)](https://www.raspberrypi.com/) | IVI host running [LIVI](https://github.com/f-io/LIVI) | Requires **Raspberry Pi OS Trixie** (for WebGL2); connected to the Pi 5 via Ethernet |
+| 1 | 7" DSI / HDMI touchscreen | LIVI head-unit display | Boots LIVI fullscreen in kiosk mode on the Pi 4 |
+| 1 | Android smartphone (optional) | Android Auto / Apple CarPlay client for LIVI | Pairs with the Pi 4 over Wi-Fi + Bluetooth |
+| 1 | [Carlinkit CPC200-CCPA dongle](https://www.carlinkit.com/) (optional) | Adds wireless Apple CarPlay to LIVI | USB dongle plugged into the Pi 4 |
 | 1 | Arduino Uno R4 WiFi + RC522 RFID Module | Door / driver-ID ECU | SPI-connected RFID reader |
 | 2 | [MXChip AZ3166](https://www.seeedstudio.com/AZ3166-IOT-Developer-Kit.html) | ThreadX SOME/IP extension | Wi-Fi + buttons + OLED display |
 

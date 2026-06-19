@@ -14,7 +14,6 @@ The documentation pages are located in `docs/website/` in this repository:
 | `setup-guide.md` | Raspberry Pi 5 Setup Guide |
 | `signal-mapping.md` | VSS / CAN Signal Mapping |
 | `communication-workflow.md` | Communication Workflow |
-| `fleet-analysis.md` | Fleet Analysis Backend |
 
 All pages use Docusaurus frontmatter (`sidebar_position`, `title`) and Mermaid diagrams (supported via `@docusaurus/theme-mermaid` already configured on the website).
 
@@ -39,7 +38,6 @@ Add the following plugin entries to the `plugins` array in `docusaurus.config.js
       "setup-guide.md",
       "signal-mapping.md",
       "communication-workflow.md",
-      "fleet-analysis.md",
     ],
     requestConfig: { responseType: "arraybuffer" },
   },
@@ -95,3 +93,4 @@ In `src/pages/index.tsx` (or the equivalent homepage component), add a card entr
 - **No external images**: All diagrams are embedded as Mermaid code blocks, so no separate image files need to be fetched.
 - **Docusaurus admonitions**: The setup guide uses `:::tip` and `:::note` admonitions which are natively supported.
 - **Source URL**: Update `sourceBaseUrl` if the repository moves to the `eclipse-sdv-blueprints` GitHub organisation.
+- **Fleet analysis backend page**: This page now lives in `external/fleet-management/docs/fleet-analysis-backend.md` and should be integrated through the Fleet Management blueprint docs source.

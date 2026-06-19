@@ -68,7 +68,7 @@ graph LR
 - [Raspberry Pi 5 Setup](./setup-guide) — Step-by-step setup instructions
 - [VSS / CAN Signal Mapping](./signal-mapping) — How VSS signals map to CAN frames
 - [Communication Workflow](./communication-workflow) — End-to-end signal flow
-- [Fleet Analysis Backend](./fleet-analysis) — Jakarta EE analytics service
+- Fleet Analysis Backend docs moved to `external/fleet-management/docs/fleet-analysis-backend.md`
 
 ### Device Guides
 

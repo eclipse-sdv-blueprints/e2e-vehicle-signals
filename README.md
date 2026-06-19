@@ -27,7 +27,7 @@ Each device has a dedicated folder under `devices/`:
 - `devices/raspberry-pi4` - connectivity unit setup notes
 - `devices/raspberry-pi5` - HCP/control node notes
 - `devices/mcu1-led-control-can` - Arduino sketch for the LED strip
-- `devices/backend-fleet-analysis-java` - Jakarta EE 21 backend for fleet analytics
+- `external/fleet-management/components/backend-fleet-analysis-java` - Jakarta EE 21 backend for fleet analytics
 - `devices/driver-input-ecu-arduino` - driver input ECU placeholder
 - `devices/driver-input-ecu-door` - RFID reader input ECU
 - `devices/driver-input-ecu-threadx` - ThreadX input ECU placeholder

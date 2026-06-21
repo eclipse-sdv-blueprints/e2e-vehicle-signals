@@ -7,8 +7,8 @@ The Fleet Analysis Backend is now maintained as part of the Fleet Management Blu
 
 Authoritative documentation:
 
-- [Fleet Management backend docs](../../external/fleet-management/docs/fleet-analysis-backend.md)
+- [Fleet Management backend docs](../fleet-management/fleet-analysis-backend)
 
 Source code:
 
-- [Backend component](../../external/fleet-management/components/backend-fleet-analysis-java/)
+- [Backend component](https://github.com/eclipse-sdv-blueprints/fleet-management/tree/main/components/backend-fleet-analysis-java/)

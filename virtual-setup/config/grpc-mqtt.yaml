@@ -1,0 +1,48 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+# Virtual-setup adaptation of devices/raspberry-pi5/ankaios/grpc-mqtt.yaml.
+# Differences from the original:
+#   - mqtt.broker uses the Docker Compose service name "mosquitto" instead of localhost
+#   - grpc.target uses the Docker Compose service name "kuksa-databroker" instead of localhost
+# The signal mappings are identical to the original.
+
+mqtt:
+  broker: "tcp://mosquitto:1883"
+  clientId: "kuksa-mqtt-bridge"
+  subscriptions:
+    - topic: "InVehicleTopics"
+      qos: 0
+grpc:
+  target: "kuksa-databroker:55555"
+  plaintext: true
+  method: "kuksa.val.v1.Val/Set"
+mappings:
+  - name: "joystick-vss-update"
+    mqtt:
+      topic: "InVehicleTopics"
+      jsonPointer: "/"
+    grpc:
+      updates:
+        - path: "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+          type: "bool"
+          jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+        - path: "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+          type: "bool"
+          jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+        - path: "Vehicle.Body.Lights.Brake.IsActive"
+          type: "string"
+          jsonPointer: "/Vehicle.Body.Lights.Brake.IsActive"
+        - path: "Vehicle.Driver.Identifier.Subject"
+          type: "string"
+          jsonPointer: "/Vehicle.Driver.Identifier.Subject"

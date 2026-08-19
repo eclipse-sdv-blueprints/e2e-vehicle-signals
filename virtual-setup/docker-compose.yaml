@@ -1,0 +1,136 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+# Virtual setup – Docker Compose stack for the E2E Vehicle Signals blueprint.
+#
+# Reuses all existing container images and source trees unchanged.
+# Replaces physical ECU hardware with the virtual-indicator-ui service.
+# Config files in ./config/ are virtual-mode adaptations (service names instead
+# of localhost) of the originals in devices/raspberry-pi5/ankaios/.
+#
+# Quick start (from this directory):
+#   docker compose build          # build pi5-demo-website and virtual-indicator-ui
+#   docker compose up -d          # start the full stack
+#   # Indicator UI:  http://localhost:8091
+#   # Demo Website:  http://localhost:8090
+#
+# For Fleet Management (optional, separate stack):
+#   docker compose -f ../external/fleet-management/fms-blueprint-compose.yaml \
+#                  -f ../external/fleet-management/fms-blueprint-compose-zenoh.yaml \
+#                  up --detach
+
+services:
+
+  # ── MQTT broker ─────────────────────────────────────────────────────────────
+  mosquitto:
+    image: docker.io/eclipse-mosquitto:latest
+    restart: always
+    networks: [sdv-net]
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # ── Kuksa Databroker (central VSS signal store) ──────────────────────────────
+  kuksa-databroker:
+    image: quay.io/eclipse-kuksa/kuksa-databroker:0.6.0
+    restart: always
+    networks: [sdv-net]
+    ports:
+      - "55555:55555"
+    environment:
+      KUKSA_DATABROKER_ADDR: "0.0.0.0"
+      KUKSA_DATABROKER_PORT: "55555"
+    command: ["--insecure"]
+
+  # ── gRPC-MQTT bridge (MQTT JSON → Kuksa Val/Set) ─────────────────────────────
+  # Source: devices/raspberry-pi5/grpc-mqtt-bridge/
+  grpc-mqtt-bridge:
+    image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main
+    restart: always
+    networks: [sdv-net]
+    depends_on:
+      mosquitto:
+        condition: service_started
+      kuksa-databroker:
+        condition: service_started
+    volumes:
+      - ./config/grpc-mqtt.yaml:/config/grpc-mqtt.yaml:ro
+    command: ["--config", "/config/grpc-mqtt.yaml"]
+
+  # ── Kuksa-to-LIVI bridge (VSS → LIVI head unit telemetry) ───────────────────
+  # Source: devices/raspberry-pi5/grpc-to-LIVI-telemetry-bridge/
+  # In virtual mode the Socket.IO connection to LIVI will fail (no head unit).
+  # The service restarts on failure; remove it if no LIVI instance is available.
+  kuksa-livi-bridge:
+    image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-livi-bridge:main
+    restart: on-failure
+    networks: [sdv-net]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      kuksa-databroker:
+        condition: service_started
+    volumes:
+      - ./config/grpc-livi.yaml:/config/grpc-livi.yaml:ro
+    command: ["--config", "/config/grpc-livi.yaml"]
+
+  # ── Pi5 Demo Website (architecture + signal-flow dashboard) ─────────────────
+  # Built from: devices/raspberry-pi5/website/  (existing, unmodified)
+  pi5-demo-website:
+    build:
+      context: ../devices/raspberry-pi5/website
+      dockerfile: Dockerfile
+    image: pi5-demo-website:virtual
+    restart: always
+    networks: [sdv-net]
+    ports:
+      - "8090:8090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mosquitto:
+        condition: service_started
+      kuksa-databroker:
+        condition: service_started
+    volumes:
+      - ./config/site-config.json:/app/site-config.json:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # ── Virtual Indicator UI (NEW) ───────────────────────────────────────────────
+  # Replaces: Arduino joystick ECU + RFID door ECU + WS2812 LED-strip ECU
+  # Built from: virtual-setup/virtual-indicator-ui/
+  virtual-indicator-ui:
+    build:
+      context: ./virtual-indicator-ui
+      dockerfile: Dockerfile
+    image: virtual-indicator-ui:latest
+    restart: always
+    networks: [sdv-net]
+    ports:
+      - "8091:8091"
+    depends_on:
+      mosquitto:
+        condition: service_started
+      kuksa-databroker:
+        condition: service_started
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - KUKSA_HOST=kuksa-databroker
+      - KUKSA_PORT=55555
+      - MQTT_TOPIC=InVehicleTopics
+
+networks:
+  sdv-net:
+    driver: bridge

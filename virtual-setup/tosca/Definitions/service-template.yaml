@@ -1,0 +1,178 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+# TOSCA Service Template for the E2E Vehicle Signals virtual setup.
+# Import this file into Eclipse Winery 3.x to visualize and deploy the topology.
+#
+# Deploy:
+#   winery-deploy --csar ../tosca \
+#                 --input host_ip=localhost
+# or simply:
+#   docker compose -f ../../virtual-setup/docker-compose.yaml up -d
+
+tosca_definitions_version: tosca_simple_yaml_1_3
+
+metadata:
+  template_name:    e2e-vehicle-signals-virtual
+  template_version: "1.0.0"
+  template_author:  Eclipse SDV Blueprints Contributors
+  description: >
+    Full virtualization of the E2E Vehicle Signals blueprint.
+    All physical ECUs (joystick, RFID door, LED strip) are replaced by the
+    virtual-indicator-ui container. No CAN bus is required. Deployable via
+    Docker Compose on any Linux host.
+
+imports:
+  - file: node-types.yaml
+  - file: relationship-types.yaml
+
+topology_template:
+
+  inputs:
+    host_ip:
+      type: string
+      default: "127.0.0.1"
+      description: Host IP address used to build output URLs
+    mqtt_port:
+      type: integer
+      default: 1883
+    kuksa_port:
+      type: integer
+      default: 55555
+    website_port:
+      type: integer
+      default: 8090
+    indicator_ui_port:
+      type: integer
+      default: 8091
+
+  node_templates:
+
+    docker-host:
+      type: sdv.nodes.DockerComposeHost
+      properties:
+        docker_version: ">=24.0"
+        os_type: Linux
+
+    mosquitto-broker:
+      type: sdv.nodes.MosquittoMQTTBroker
+      properties:
+        port: { get_input: mqtt_port }
+      artifacts:
+        mosquitto_conf:
+          type: tosca.artifacts.File
+          file: ../../config/mosquitto.conf          # virtual-setup/config/
+      requirements:
+        - host: docker-host
+
+    kuksa-databroker:
+      type: sdv.nodes.KuksaDatabroker
+      properties:
+        port: { get_input: kuksa_port }
+        vss_version: "4.2"
+      requirements:
+        - host: docker-host
+
+    grpc-mqtt-bridge:
+      type: sdv.nodes.GrpcMqttBridge
+      artifacts:
+        bridge_conf:
+          type: tosca.artifacts.File
+          file: ../../config/grpc-mqtt.yaml          # virtual-setup/config/
+      requirements:
+        - host: docker-host
+        - connects_to_mqtt:
+            node: mosquitto-broker
+            relationship: sdv.relationships.PublishesToMQTT
+        - connects_to_databroker:
+            node: kuksa-databroker
+            relationship: sdv.relationships.SubscribesViaGRPC
+
+    kuksa-livi-bridge:
+      type: sdv.nodes.KuksaLiviBridge
+      artifacts:
+        livi_conf:
+          type: tosca.artifacts.File
+          file: ../../config/grpc-livi.yaml          # virtual-setup/config/
+      requirements:
+        - host: docker-host
+        - connects_to_databroker:
+            node: kuksa-databroker
+            relationship: sdv.relationships.SubscribesViaGRPC
+
+    pi5-demo-website:
+      type: sdv.nodes.Pi5DemoWebsite
+      properties:
+        port: { get_input: website_port }
+        # Source built from: devices/raspberry-pi5/website/ (unmodified)
+      artifacts:
+        site_conf:
+          type: tosca.artifacts.File
+          file: ../../config/site-config.json        # virtual-setup/config/
+        source_tree:
+          type: tosca.artifacts.Deployment
+          file: ../../../devices/raspberry-pi5/website  # existing, unmodified
+      requirements:
+        - host: docker-host
+
+    virtual-indicator-ui:
+      type: sdv.nodes.VirtualIndicatorUI
+      properties:
+        port: { get_input: indicator_ui_port }
+        mqtt_topic: "InVehicleTopics"
+        vss_paths:
+          - "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+          - "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+          - "Vehicle.Body.Lights.Brake.IsActive"
+          - "Vehicle.Driver.Identifier.Subject"
+      artifacts:
+        source_tree:
+          type: tosca.artifacts.Deployment
+          file: ../../virtual-indicator-ui           # virtual-setup/virtual-indicator-ui/
+      requirements:
+        - host: docker-host
+        - publishes_to_mqtt:
+            node: mosquitto-broker
+            relationship: sdv.relationships.PublishesToMQTT
+        - subscribes_to_databroker:
+            node: kuksa-databroker
+            relationship: sdv.relationships.SubscribesViaGRPC
+
+    fleet-management-stack:
+      type: sdv.nodes.FleetManagementStack
+      properties:
+        # Reuses existing compose files from external/fleet-management/ (unmodified)
+        compose_file: "../../../external/fleet-management/fms-blueprint-compose-zenoh.yaml"
+        influxdb_port: 8086
+        grafana_port: 3000
+        fms_server_port: 8081
+        analytics_port: 8082
+      requirements:
+        - host: docker-host
+        - receives_from_databroker:
+            node: kuksa-databroker
+            relationship: sdv.relationships.ForwardsToFleet
+
+  outputs:
+    indicator_ui_url:
+      description: "Virtual Indicator Input + Actor UI"
+      value: { concat: ["http://", { get_input: host_ip }, ":", { get_input: indicator_ui_port }] }
+    demo_website_url:
+      description: "Pi5 architecture / signal-flow dashboard"
+      value: { concat: ["http://", { get_input: host_ip }, ":", { get_input: website_port }] }
+    grafana_url:
+      description: "Fleet telemetry Grafana (fleet-management stack)"
+      value: { concat: ["http://", { get_input: host_ip }, ":3000"] }
+    kuksa_endpoint:
+      description: "Kuksa Databroker gRPC endpoint"
+      value: { concat: [{ get_input: host_ip }, ":", { get_input: kuksa_port }] }

@@ -1,0 +1,138 @@
+<!--
+  Copyright (c) 2026 Contributors to the Eclipse Foundation
+
+  See the NOTICE file(s) distributed with this work for additional
+  information regarding copyright ownership.
+
+  This program and the accompanying materials are made available under the
+  terms of the Apache License 2.0 which is available at
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  SPDX-License-Identifier: Apache-2.0
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Virtual Indicator UI – SDV Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Virtual Indicator UI</h1>
+      <p>Replaces Arduino joystick ECU (input) · RFID door ECU (driver ID) · WS2812 LED-strip ECU (actor)</p>
+    </div>
+    <div class="topbar-right">
+      <span id="sse-pill" class="pill pill--warn">Connecting…</span>
+      <a class="nav-link" href="http://localhost:8090" target="_blank" rel="noopener noreferrer">↗ Pi5 Demo Website</a>
+    </div>
+  </header>
+
+  <main class="panels">
+
+    <!-- ── INPUT PANEL ───────────────────────────────────────────────────── -->
+    <section class="panel" id="input-panel">
+      <h2>Indicator Input <span class="tag">replaces joystick + RFID ECU</span></h2>
+
+      <div class="control-group">
+        <h3>Direction Indicators</h3>
+        <div class="btn-row">
+          <button class="btn btn--left"  id="btn-left"  type="button">◄ Left</button>
+          <button class="btn btn--right" id="btn-right" type="button">Right ►</button>
+          <button class="btn btn--off"   id="btn-off"   type="button">■ Off</button>
+        </div>
+        <div class="state-row">
+          <span class="state-label">Left:</span>
+          <span class="state-val" id="state-left">off</span>
+          <span class="state-label">Right:</span>
+          <span class="state-val" id="state-right">off</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Brake</h3>
+        <div class="btn-row">
+          <button class="btn btn--brake" id="btn-brake" type="button">Brake INACTIVE</button>
+        </div>
+        <div class="state-row">
+          <span class="state-label">Brake.IsActive:</span>
+          <span class="state-val" id="state-brake">INACTIVE</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Driver ID <span class="tag">replaces RFID ECU</span></h3>
+        <div class="id-row">
+          <input id="driver-id-input" type="text" maxlength="64"
+                 placeholder="e.g. driver-001" autocomplete="off" spellcheck="false">
+          <button class="btn btn--identify" id="btn-identify" type="button">Identify</button>
+        </div>
+        <div class="state-row">
+          <span class="state-label">Last sent:</span>
+          <span class="state-val" id="state-driver">—</span>
+        </div>
+      </div>
+
+      <div id="publish-status" class="publish-status" aria-live="polite"></div>
+    </section>
+
+    <!-- ── ACTOR PANEL ───────────────────────────────────────────────────── -->
+    <section class="panel" id="actor-panel">
+      <h2>Indicator Actor <span class="tag">replaces WS2812 8-LED ECU</span></h2>
+
+      <div class="led-container">
+        <div class="led-label led-label--left">◄ LEFT</div>
+        <div class="led-strip" id="led-strip" aria-label="8-LED indicator strip">
+          <span class="led led--off" id="led-1" title="LED 1"></span>
+          <span class="led led--off" id="led-2" title="LED 2"></span>
+          <span class="led led--off" id="led-3" title="LED 3"></span>
+          <span class="led led--off" id="led-4" title="LED 4"></span>
+          <span class="led led--off" id="led-5" title="LED 5"></span>
+          <span class="led led--off" id="led-6" title="LED 6"></span>
+          <span class="led led--off" id="led-7" title="LED 7"></span>
+          <span class="led led--off" id="led-8" title="LED 8"></span>
+        </div>
+        <div class="led-label led-label--right">RIGHT ►</div>
+      </div>
+
+      <ul class="led-legend">
+        <li><span class="legend-dot dot--amber"></span> LEDs 1–2: left indicator (orange blink)</li>
+        <li><span class="legend-dot" style="background:#001a00;box-shadow:0 0 3px rgba(0,80,0,.5)"></span> LED 3: status / CAN heartbeat (dim green)</li>
+        <li><span class="legend-dot dot--red"></span> LEDs 4–5: brake active (solid red)</li>
+        <li><span class="legend-dot dot--off"></span> LED 6: error indicator (idle off)</li>
+        <li><span class="legend-dot dot--amber"></span> LEDs 7–8: right indicator (orange blink)</li>
+      </ul>
+
+      <h3>Live VSS Values <span class="tag">from Kuksa Databroker via SSE</span></h3>
+      <table class="vss-table" id="vss-table">
+        <thead>
+          <tr><th>VSS Signal</th><th>Current Value</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>DirectionIndicator.Left.IsSignaling</td>
+            <td id="vss-left" class="vss-val">—</td>
+          </tr>
+          <tr>
+            <td>DirectionIndicator.Right.IsSignaling</td>
+            <td id="vss-right" class="vss-val">—</td>
+          </tr>
+          <tr>
+            <td>Brake.IsActive</td>
+            <td id="vss-brake" class="vss-val">—</td>
+          </tr>
+          <tr>
+            <td>Driver.Identifier.Subject</td>
+            <td id="vss-driver" class="vss-val">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

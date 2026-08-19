@@ -1,0 +1,2 @@
+kuksa-client
+paho-mqtt>=2.0

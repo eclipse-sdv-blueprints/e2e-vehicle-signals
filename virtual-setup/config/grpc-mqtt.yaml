@@ -14,7 +14,8 @@
 # Virtual-setup adaptation of devices/raspberry-pi5/ankaios/grpc-mqtt.yaml.
 # Differences from the original:
 #   - mqtt.broker uses the Docker Compose service name "mosquitto" instead of localhost
-#   - grpc.target uses the Docker Compose service name "kuksa-databroker" instead of localhost
+#   - grpc.target uses the FMS Databroker service so virtual signals also flow into
+#     fms-forwarder -> Zenoh -> fms-consumer -> InfluxDB/Grafana
 # The signal mappings are identical to the original.
 
 mqtt:
@@ -24,7 +25,7 @@ mqtt:
     - topic: "InVehicleTopics"
       qos: 0
 grpc:
-  target: "kuksa-databroker:55555"
+  target: "fms-databroker:55556"
   plaintext: true
   method: "kuksa.val.v1.Val/Set"
 mappings:

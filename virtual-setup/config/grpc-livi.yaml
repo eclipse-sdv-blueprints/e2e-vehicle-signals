@@ -13,7 +13,8 @@
 #
 # Virtual-setup adaptation of devices/raspberry-pi5/ankaios/grpc-livi.yaml.
 # Differences from the original:
-#   - kuksa.target uses the Docker Compose service name "kuksa-databroker"
+#   - kuksa.target uses the FMS Databroker service so the LIVI bridge observes
+#     the same signal source as the FMS forwarder and dashboards
 #   - livi.url is set to localhost:4000 (no physical LIVI head unit in virtual mode)
 #     The bridge starts successfully but the Socket.IO connection to LIVI will not
 #     succeed unless a LIVI instance is separately running on the host.
@@ -21,7 +22,7 @@
 # mappings see devices/raspberry-pi5/ankaios/grpc-livi.yaml.
 
 kuksa:
-  target: "kuksa-databroker:55555"
+  target: "fms-databroker:55556"
 
 livi:
   # No LIVI head unit in virtual mode — bridge runs but Socket.IO connection will fail.

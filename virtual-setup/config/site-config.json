@@ -11,8 +11,8 @@
     "port": 1883
   },
   "kuksa": {
-    "host": "kuksa-databroker",
-    "port": 55555
+    "host": "fms-databroker",
+    "port": 55556
   },
   "ankaios_dashboard_url": null,
   "dozzle_url": null,
@@ -20,8 +20,8 @@
     "enabled": false
   },
   "fleet": {
-    "grafana_url": "http://host.docker.internal:3000",
-    "fms_server_url": "http://host.docker.internal:8081"
+    "grafana_url": "http://grafana:3000",
+    "fms_server_url": "http://fms-server:8081"
   },
   "kuksa_observer": {
     "enabled": true,

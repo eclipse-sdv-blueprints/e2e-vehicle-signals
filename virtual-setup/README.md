@@ -39,7 +39,7 @@ virtual-setup/
 | Pi5 Demo Website | `devices/raspberry-pi5/website/` | `build: context: ../devices/raspberry-pi5/website` |
 | grpc-mqtt signal mappings | `devices/raspberry-pi5/ankaios/grpc-mqtt.yaml` | adapted → `config/grpc-mqtt.yaml` (broker/target changed to service names) |
 | grpc-livi mappings | `devices/raspberry-pi5/ankaios/grpc-livi.yaml` | adapted → `config/grpc-livi.yaml` (minimal blinker subset) |
-| Fleet Management stack | `external/fleet-management/` | `fms-blueprint-compose-zenoh.yaml` run separately |
+| Fleet Management stack | `external/fleet-management/` | Referenced directly from `docker-compose.yaml` for FMS config, CSV replay, Zenoh, InfluxDB, Grafana, and analytics |
 
 ## Quick start
 
@@ -85,19 +85,17 @@ The input panel publishes VSS JSON to `InVehicleTopics` MQTT with the exact same
 
 The actor panel subscribes to Kuksa Databroker via Server-Sent Events (`GET /api/sse/signals`) and updates the LED state every 200 ms.
 
-## Optional: Fleet Management
+## Fleet Management
 
-The Fleet Management stack runs independently from its existing compose files:
+The virtual setup now starts the FMS services as part of the same `docker compose up`:
 
 ```bash
-docker compose \
-  -f ../external/fleet-management/fms-blueprint-compose.yaml \
-  -f ../external/fleet-management/fms-blueprint-compose-zenoh.yaml \
-  up --detach
-
 open http://localhost:3000   # Grafana
 open http://localhost:8081   # FMS rFMS API
+open http://localhost:8082   # Fleet analytics backend
 ```
+
+`fms-forwarder` only forwards telemetry from the FMS Kuksa Databroker into Zenoh. The service that writes those samples into InfluxDB is `fms-consumer`, which now uses the same token and startup wiring as the upstream Fleet Management compose files.
 
 ## Eclipse Winery / TOSCA
 

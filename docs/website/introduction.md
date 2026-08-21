@@ -66,6 +66,7 @@ graph LR
 - [Architecture](./architecture) — Full component and communication architecture
 - [Hardware Bill of Materials](./hardware) — Parts list for reproducing the demo
 - [Raspberry Pi 5 Setup](./setup-guide) — Step-by-step setup instructions
+- [Virtual Setup](./virtual-setup) — Run the full blueprint without physical ECU hardware
 - [VSS / CAN Signal Mapping](./signal-mapping) — How VSS signals map to CAN frames
 - [Communication Workflow](./communication-workflow) — End-to-end signal flow
 - [Fleet Analysis Backend](./fleet-analysis) — Jakarta EE analytics service

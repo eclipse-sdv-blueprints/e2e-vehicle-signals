@@ -11,7 +11,7 @@
     "port": 1883
   },
   "kuksa": {
-    "host": "fms-databroker",
+    "host": "databroker",
     "port": 55556
   },
   "ankaios_dashboard_url": null,
@@ -51,7 +51,7 @@
   "containers": {
     "mqtt_broker": ["mosquitto"],
     "mqtt_bridge": ["grpc-mqtt-bridge"],
-    "kuksa_databroker": ["kuksa-databroker"],
+    "kuksa_databroker": ["databroker"],
     "livi_bridge": ["kuksa-livi-bridge"],
     "virtual_indicator_ui": ["virtual-indicator-ui"]
   }

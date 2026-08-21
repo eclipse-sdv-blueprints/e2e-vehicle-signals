@@ -12,6 +12,7 @@ The documentation pages are located in `docs/website/` in this repository:
 | `architecture.md` | Architecture |
 | `hardware.md` | Hardware Bill of Materials |
 | `setup-guide.md` | Raspberry Pi 5 Setup Guide |
+| `virtual-setup.md` | Virtual Setup |
 | `signal-mapping.md` | VSS / CAN Signal Mapping |
 | `communication-workflow.md` | Communication Workflow |
 | `fleet-analysis.md` | Fleet Analysis Backend |
@@ -37,6 +38,7 @@ Add the following plugin entries to the `plugins` array in `docusaurus.config.js
       "architecture.md",
       "hardware.md",
       "setup-guide.md",
+      "virtual-setup.md",
       "signal-mapping.md",
       "communication-workflow.md",
       "fleet-analysis.md",
@@ -59,6 +61,7 @@ Add a new category inside the `items` array of the `overallSidebar`:
     'e2e-demo-blueprint/architecture',
     'e2e-demo-blueprint/hardware',
     'e2e-demo-blueprint/setup-guide',
+    'e2e-demo-blueprint/virtual-setup',
     'e2e-demo-blueprint/signal-mapping',
     'e2e-demo-blueprint/communication-workflow',
     'e2e-demo-blueprint/fleet-analysis',

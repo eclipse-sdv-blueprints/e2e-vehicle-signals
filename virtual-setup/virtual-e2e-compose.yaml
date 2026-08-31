@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+configs:
+  grpc_mqtt_config:
+    file: ./config/grpc-mqtt.yaml
+  grpc_livi_config:
+    file: ./config/grpc-livi.yaml
+  site_config:
+    file: ./config/site-config.json
+
+networks:
+  fms-backend:
+    external: true
+    name: fleet-management_fms-backend
+  fms-vehicle:
+    external: true
+    name: fleet-management_fms-vehicle
+
+services:
+  mosquitto:
+    image: docker.io/eclipse-mosquitto:latest
+    restart: unless-stopped
+    networks:
+      - fms-vehicle
+    ports:
+      - "1883:1883"
+    command:
+      - /bin/sh
+      - -c
+      - "printf 'listener 1883 0.0.0.0\\nallow_anonymous true\\n' > /tmp/mosquitto.conf && mosquitto -c /tmp/mosquitto.conf"
+
+  grpc-mqtt-bridge:
+    image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main
+    restart: unless-stopped
+    networks:
+      - fms-vehicle
+    configs:
+      - source: grpc_mqtt_config
+        target: /config/grpc-mqtt.yaml
+    command: ["--config", "/config/grpc-mqtt.yaml"]
+
+  # kuksa-livi-bridge:
+  #   image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-livi-bridge:main
+  #   restart: on-failure
+  #   networks:
+  #     - fms-vehicle
+  #   configs:
+  #     - source: grpc_livi_config
+  #       target: /config/grpc-livi.yaml
+  #   command: ["--config", "/config/grpc-livi.yaml"]
+
+  virtual-indicator-ui:
+    image: virtual-indicator-ui:latest
+    build:
+      context: ./virtual-indicator-ui
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - fms-vehicle
+    ports:
+      - "8091:8091"
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      KUKSA_HOST: databroker
+      KUKSA_PORT: "55556"
+      MQTT_TOPIC: InVehicleTopics
+
+  pi5-demo-website:
+    image: pi5-demo-website:virtual
+    build:
+      context: ../devices/raspberry-pi5/website
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - fms-vehicle
+      - fms-backend
+    ports:
+      - "8090:8090"
+    configs:
+      - source: site_config
+        target: /app/site-config.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+ 

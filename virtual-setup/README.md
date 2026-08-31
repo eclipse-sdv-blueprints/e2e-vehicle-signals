@@ -21,7 +21,10 @@ Fully virtualized E2E Vehicle Signals blueprint — runs on any Linux host with 
 
 ```
 virtual-setup/
-├── docker-compose.yaml          ← start the full virtual stack
+├── virtual-e2e-compose.yaml     ← virtual services (joins Fleet Management networks)
+├── start-virtual-setup.sh       ← starts Fleet Management + virtual services
+├── stop-virtual-setup.sh        ← stops both stacks
+├── docker-compose.yaml          ← all-in-one compose variant
 ├── config/
 │   ├── mosquitto.conf           ← MQTT broker config (adapted from ankaios/vehicle-signals.yaml)
 │   ├── grpc-mqtt.yaml           ← bridge config (service names instead of localhost)
@@ -54,16 +57,15 @@ virtual-setup/
 | Pi5 Demo Website | `devices/raspberry-pi5/website/` | `build: context: ../devices/raspberry-pi5/website` |
 | grpc-mqtt signal mappings | `devices/raspberry-pi5/ankaios/grpc-mqtt.yaml` | adapted → `config/grpc-mqtt.yaml` (broker/target changed to service names) |
 | grpc-livi mappings | `devices/raspberry-pi5/ankaios/grpc-livi.yaml` | adapted → `config/grpc-livi.yaml` (minimal blinker subset) |
-| Fleet Management stack | `external/fleet-management/` | Referenced directly from `docker-compose.yaml` for FMS config, CSV replay, Zenoh, InfluxDB, Grafana, and analytics |
+| Fleet Management stack | `external/fleet-management/` | Started via `start-virtual-setup.sh` using `fms-blueprint-compose.yaml` + `fms-blueprint-compose-zenoh.yaml` |
 
 ## Quick start
 
 ```bash
 cd virtual-setup
 
-# Build local images and start all services
-docker compose build
-docker compose up -d
+# Start Fleet Management + virtual services
+bash ./start-virtual-setup.sh
 
 # Indicator Input + Actor UI
 open http://localhost:8091
@@ -72,7 +74,10 @@ open http://localhost:8091
 open http://localhost:8090
 
 # Logs
-docker compose logs -f
+docker compose -f virtual-e2e-compose.yaml logs -f
+
+# Stop everything
+bash ./stop-virtual-setup.sh
 ```
 
 ### Signal flow (no hardware required)
@@ -81,10 +86,13 @@ docker compose logs -f
 Browser button click
   └─► POST /api/indicator (virtual-indicator-ui :8091)
         └─► MQTT publish → mosquitto :1883
-              └─► grpc-mqtt-bridge → kuksa-databroker :55555 (Val/Set gRPC)
-                    └─► kuksa-databroker → SSE poll (virtual-indicator-ui /api/sse/signals)
+              └─► grpc-mqtt-bridge → databroker :55556 (Val/Set gRPC)
+                    └─► databroker → SSE poll (virtual-indicator-ui /api/sse/signals)
                           └─► Actor LED panel updates in browser
 ```
+
+Inside the Docker `fms-vehicle` network, services must use `databroker:55556`.
+Host access stays mapped to `localhost:55555`.
 
 ## Virtual Indicator UI
 
@@ -102,7 +110,7 @@ The actor panel subscribes to Kuksa Databroker via Server-Sent Events (`GET /api
 
 ## Fleet Management
 
-The virtual setup now starts the FMS services as part of the same `docker compose up`:
+The startup script first starts Fleet Management, then starts the virtual services compose which attaches to the external Fleet networks (`fleet-management_fms-backend`, `fleet-management_fms-vehicle`):
 
 ```bash
 open http://localhost:3000   # Grafana

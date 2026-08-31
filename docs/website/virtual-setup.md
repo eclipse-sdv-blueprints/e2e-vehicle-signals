@@ -23,12 +23,19 @@ The virtual setup replaces those devices with:
 
 ## Stack overview
 
-The virtual stack is started from [`virtual-setup/docker-compose.yaml`](../../virtual-setup/docker-compose.yaml) and combines:
+The setup is started with [`virtual-setup/start-virtual-setup.sh`](../../virtual-setup/start-virtual-setup.sh).
+It starts Fleet Management first, then starts [`virtual-setup/virtual-e2e-compose.yaml`](../../virtual-setup/virtual-e2e-compose.yaml), which joins the external Docker networks created by Fleet Management.
+
+Virtual compose services:
 
 - `mosquitto`
 - `grpc-mqtt-bridge`
-- `kuksa-databroker`
-- `fms-databroker`
+- `virtual-indicator-ui`
+- `pi5-demo-website`
+
+Fleet Management services (started from `external/fleet-management` compose files):
+
+- `databroker`
 - `fms-forwarder`
 - `fms-zenoh-router`
 - `fms-consumer`
@@ -36,8 +43,6 @@ The virtual stack is started from [`virtual-setup/docker-compose.yaml`](../../vi
 - `grafana`
 - `fms-server`
 - `fleet-analysis-backend`
-- `pi5-demo-website`
-- `virtual-indicator-ui`
 
 ## Signal flow
 
@@ -70,10 +75,14 @@ graph LR
 From the repository root:
 
 ```bash
-docker compose -f virtual-setup/docker-compose.yaml down -v --remove-orphans
-docker compose -f virtual-setup/docker-compose.yaml build --no-cache
-docker compose -f virtual-setup/docker-compose.yaml up -d
+bash virtual-setup/stop-virtual-setup.sh
+bash virtual-setup/start-virtual-setup.sh
 ```
+
+Port usage note:
+
+- Inside Docker `fms-vehicle`, use `databroker:55556`.
+- From the host, Databroker is exposed as `localhost:55555`.
 
 ## Access the services
 

@@ -1,7 +1,7 @@
 #pragma once
 
 // Update this address to the Raspberry Pi 5 running the C++ OpenSOME/IP provider.
-#define SOMEIP_BRIDGE_IP "192.168.88.100"
+#define SOMEIP_BRIDGE_IP "192.168.0.143"
 #define SOMEIP_BRIDGE_PORT 30500
 #define SOMEIP_LOCAL_PORT 30501
 

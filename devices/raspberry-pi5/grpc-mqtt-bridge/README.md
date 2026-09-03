@@ -4,6 +4,9 @@ Subscribes to MQTT topics on a local broker (e.g. Mosquitto) and forwards
 selected JSON payload fields into the
 [Kuksa Databroker](https://github.com/eclipse-kuksa/kuksa-databroker) over gRPC.
 
+Optionally mirrors actuator target values from Kuksa back to MQTT, allowing
+ECUs to react to VSS actuator commands.
+
 Used in this blueprint to ingest signals published by the Arduino joystick /
 RFID / brake ECUs (via the MCU1 CAN gateway and `grpc-mqtt` Hono bridge) into
 VSS so they can be consumed by every downstream workload (LED control, LIVI
@@ -55,6 +58,24 @@ mappings:
         - path: "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
           type: "bool"
           jsonPointer: "/Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+  - name: "driver-door-actuator-current-value"
+    mqtt:
+      topic: "InVehicleTopics"
+      jsonPointer: "/"
+    grpc:
+      updates:
+        - path: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+          type: "bool"
+          destination: "current"
+          jsonPointer: "/Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+actuatorBridge:
+  pollMs: 100
+  targets:
+    - path: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+      type: "bool"
+      topic: "InVehicleTopics"
+      payloadKey: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+      qos: 0
 ```
 
 ### `mqtt` section
@@ -84,6 +105,21 @@ Each mapping connects one MQTT topic to one or more VSS datapoints.
 | `grpc.updates[].path` | yes | Fully qualified VSS path to write (e.g. `Vehicle.Speed`) |
 | `grpc.updates[].jsonPointer` | yes | JSON pointer into the (scoped) payload picking the value |
 | `grpc.updates[].type` | no | Target scalar type: `bool`, `int`, `float`, `string` |
+| `grpc.updates[].destination` | no | Write destination: `auto` (default), `current`, or `target` |
+
+### `actuatorBridge` section
+
+Use this optional section to mirror actuator target values from Kuksa back to
+MQTT.
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `pollMs` | no | Poll period in ms when `subscribe_target_values` is unavailable (default: `100`) |
+| `targets[].path` | yes | VSS actuator path whose target value is forwarded to MQTT |
+| `targets[].type` | no | Cast emitted value to `bool`, `int`, `float`, `string` |
+| `targets[].topic` | no | MQTT topic to publish to (default: `InVehicleTopics`) |
+| `targets[].payloadKey` | no | JSON key for outbound payload (default: same as `path`) |
+| `targets[].qos` | no | MQTT QoS for outbound publish (default: `0`) |
 
 For each incoming MQTT message:
 
@@ -94,6 +130,8 @@ For each incoming MQTT message:
 4. Writes are routed automatically:
    - **`ACTUATOR`** entries are written via `set_target_values`.
    - All other entry types (sensor, attribute) use `set_current_values`.
+5. If `actuatorBridge.targets` are configured, target-value changes are
+  mirrored to MQTT as VSS JSON payloads.
 
 VSS metadata (data type, value restriction, entry type) is fetched lazily on
 first use and cached, so string-typed booleans, enum-restricted strings, and

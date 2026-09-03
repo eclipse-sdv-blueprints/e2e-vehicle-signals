@@ -37,6 +37,14 @@ workloads:
       image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main
       commandArgs: ["--config", "/config/grpc-mqtt.yaml"]
       commandOptions: ["--net=host"]
+  kuksa-opensomeip-door-provider:
+    runtime: podman
+    agent: agent_B
+    restartPolicy: ALWAYS
+    runtimeConfig: |
+      image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-opensomeip-door-provider:main
+      commandArgs: ["--broker", "localhost:55555", "--door-host", "192.168.88.101"]
+      commandOptions: ["--net=host"]
   kuksa-livi-bridge:
     runtime: podman
     agent: agent_B

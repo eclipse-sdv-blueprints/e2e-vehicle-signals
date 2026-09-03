@@ -14,6 +14,8 @@
 import argparse
 import json
 import sys
+import threading
+import time
 from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
@@ -131,10 +133,26 @@ class KuksaWriter:
         if self._set_target_values is None and self._set_current_values is None:
             raise RuntimeError("Kuksa client has no supported set_* method")
 
-    def write(self, updates):
+    def write(self, updates, destination="auto"):
         if not updates:
             return
         normalized = self._normalize_updates(updates)
+        destination = (destination or "auto").lower()
+
+        if destination == "current":
+            if self._set_current_values:
+                self._set_current_values(normalized)
+            elif self._set_target_values:
+                self._set_target_values(normalized)
+            return
+
+        if destination == "target":
+            if self._set_target_values:
+                self._set_target_values(normalized)
+            elif self._set_current_values:
+                self._set_current_values(normalized)
+            return
+
         if self._set_target_values and self._set_current_values:
             target_updates = {}
             current_updates = {}
@@ -342,6 +360,102 @@ class KuksaWriter:
         return "true" if value else "false"
 
 
+def _extract_entry_value(entry):
+    if entry is None:
+        return None
+    value = getattr(entry, "value", None)
+    if value is None:
+        return None
+    inner = getattr(value, "value", None)
+    return inner if inner is not None else value
+
+
+def _start_targetvalue_to_mqtt_worker(
+    mqtt_client,
+    kuksa_host,
+    kuksa_port,
+    actuator_targets,
+    poll_ms,
+):
+    if not actuator_targets:
+        return
+
+    paths = [target["path"] for target in actuator_targets if target.get("path")]
+    if not paths:
+        return
+
+    path_config = {target["path"]: target for target in actuator_targets if target.get("path")}
+    last_published = {}
+    poll_interval = max(float(poll_ms) / 1000.0, 0.05)
+
+    def publish_path_value(path, raw_value):
+        target = path_config.get(path)
+        if target is None:
+            return
+
+        try:
+            value = _cast_value(raw_value, target.get("type"))
+        except (TypeError, ValueError):
+            return
+
+        if path in last_published and last_published[path] == value:
+            return
+
+        payload_key = target.get("payloadKey") or path
+        topic = target.get("topic") or "InVehicleTopics"
+        qos = int(target.get("qos", 0))
+        payload = json.dumps({payload_key: value})
+        mqtt_client.publish(topic, payload, qos=qos)
+        last_published[path] = value
+
+    def worker():
+        try:
+            from kuksa_client.grpc import VSSClient
+        except ImportError:
+            print(
+                "kuksa_client.grpc is unavailable; actuator target bridge disabled",
+                file=sys.stderr,
+            )
+            return
+
+        while True:
+            try:
+                with VSSClient(
+                    kuksa_host,
+                    kuksa_port,
+                    ensure_startup_connection=False,
+                ) as client:
+                    print(
+                        f"Actuator target bridge connected to Kuksa at {kuksa_host}:{kuksa_port}",
+                        file=sys.stderr,
+                    )
+                    if hasattr(client, "subscribe_target_values"):
+                        for updates in client.subscribe_target_values(paths):
+                            for path, entry in (updates or {}).items():
+                                value = _extract_entry_value(entry)
+                                if value is None:
+                                    continue
+                                publish_path_value(path, value)
+                    else:
+                        while True:
+                            entries = client.get_target_values(paths)
+                            for path, entry in (entries or {}).items():
+                                value = _extract_entry_value(entry)
+                                if value is None:
+                                    continue
+                                publish_path_value(path, value)
+                            time.sleep(poll_interval)
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    f"Actuator target bridge lost connection ({exc}), retrying in 3s",
+                    file=sys.stderr,
+                )
+                time.sleep(3)
+
+    thread = threading.Thread(target=worker, name="kuksa-target-to-mqtt", daemon=True)
+    thread.start()
+
+
 def main():
     args = _parse_args()
     config = _read_config(args.config)
@@ -354,6 +468,9 @@ def main():
     broker_host, broker_port = _parse_broker_url(broker_url)
     client_id = mqtt_config.get("clientId", "kuksa-mqtt-bridge")
     subscriptions = mqtt_config.get("subscriptions", [])
+    actuator_bridge = config.get("actuatorBridge", {})
+    actuator_targets = actuator_bridge.get("targets", [])
+    actuator_poll_ms = actuator_bridge.get("pollMs", 100)
 
     grpc_target = grpc_config.get("target", "localhost:55555")
     if ":" in grpc_target:
@@ -375,7 +492,7 @@ def main():
             print("Skipping non-JSON MQTT payload", file=sys.stderr)
             return
 
-        updates = {}
+        updates_by_destination = {"auto": {}, "current": {}, "target": {}}
         for mapping in mappings:
             mqtt_mapping = mapping.get("mqtt", {})
             if mqtt_mapping.get("topic") != msg.topic:
@@ -387,6 +504,9 @@ def main():
                 continue
             grpc_mapping = mapping.get("grpc", {})
             for update in grpc_mapping.get("updates", []):
+                path = update.get("path")
+                if not path:
+                    continue
                 pointer = update.get("jsonPointer", "/")
                 try:
                     value = _json_pointer(scoped_payload, pointer)
@@ -396,10 +516,15 @@ def main():
                     value = _cast_value(value, update.get("type"))
                 except (TypeError, ValueError):
                     continue
-                updates[update.get("path")] = value
+                destination = str(update.get("destination", "auto")).lower()
+                if destination not in updates_by_destination:
+                    destination = "auto"
+                updates_by_destination[destination][path] = value
 
         try:
-            kuksa_writer.write(updates)
+            kuksa_writer.write(updates_by_destination["current"], destination="current")
+            kuksa_writer.write(updates_by_destination["target"], destination="target")
+            kuksa_writer.write(updates_by_destination["auto"], destination="auto")
         except Exception as exc:  # noqa: BLE001
             print(f"Failed to write to Kuksa: {exc}", file=sys.stderr)
 
@@ -413,6 +538,14 @@ def main():
             continue
         qos = subscription.get("qos", 0)
         client.subscribe(topic, qos=qos)
+
+    _start_targetvalue_to_mqtt_worker(
+        mqtt_client=client,
+        kuksa_host=grpc_host,
+        kuksa_port=grpc_port,
+        actuator_targets=actuator_targets,
+        poll_ms=actuator_poll_ms,
+    )
 
     client.loop_forever()
 

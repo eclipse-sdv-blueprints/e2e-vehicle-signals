@@ -1,0 +1,9 @@
+This component contains a copy of `src/lib/broker_feeder` and
+`proto/kuksa_data_broker` from eclipse-kuksa/kuksa-someip-provider.
+
+Source repository: https://github.com/eclipse-kuksa/kuksa-someip-provider
+Source revision: a4a5537f38b00d953a431e59295776def0541eb6
+License: Apache-2.0
+
+The copied CollectorClient is locally extended with a `kuksa.val.v1.VAL/Set`
+wrapper so current values use the supported Databroker API.

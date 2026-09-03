@@ -1,0 +1,21 @@
+#pragma once
+
+// Update this address to the Raspberry Pi 5 running the C++ OpenSOME/IP provider.
+#define SOMEIP_BRIDGE_IP "192.168.88.100"
+#define SOMEIP_BRIDGE_PORT 30500
+#define SOMEIP_LOCAL_PORT 30501
+
+#define SOMEIP_SERVICE_ID 0x4301
+#define SOMEIP_STATE_EVENT_ID 0x8001
+#define SOMEIP_TARGET_EVENT_ID 0x8002
+#define SOMEIP_CLIENT_ID 0xD001
+#define SOMEIP_INTERFACE_VERSION 1
+#define SOMEIP_PACKET_SIZE 17
+
+#define SERVO_PIN 9
+#define SERVO_MIN_ANGLE 0
+#define SERVO_MAX_ANGLE 90
+#define SERVO_STEP_DEGREES 2
+#define SERVO_STEP_INTERVAL_MS 20
+
+#define WIFI_RETRY_INTERVAL_MS 5000

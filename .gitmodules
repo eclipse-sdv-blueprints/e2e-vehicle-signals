@@ -7,3 +7,6 @@
 [submodule "external/challenge-threadx-playRemote"]
 	path = external/challenge-threadx-playRemote
 	url = https://github.com/chheis/challenge-threadx-playRemote
+[submodule "external/opensomeip"]
+	path = external/opensomeip
+	url = https://github.com/vtz/opensomeip.git

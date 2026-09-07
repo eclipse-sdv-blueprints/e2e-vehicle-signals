@@ -39,3 +39,22 @@ mappings:
         - path: "Vehicle.Driver.Identifier.Subject"
           type: "string"
           jsonPointer: "/Vehicle.Driver.Identifier.Subject"
+  - name: "driver-door-actuator-current-value"
+    mqtt:
+      topic: "InVehicleTopics"
+      jsonPointer: "/"
+    grpc:
+      updates:
+        - path: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+          type: "bool"
+          destination: "current"
+          jsonPointer: "/Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+
+actuatorBridge:
+  pollMs: 100
+  targets:
+    - path: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+      type: "bool"
+      topic: "InVehicleTopics"
+      payloadKey: "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
+      qos: 0

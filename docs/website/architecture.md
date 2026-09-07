@@ -14,11 +14,13 @@ graph TB
     subgraph Driver Inputs
         JOY[Joystick ECU<br/>Arduino Uno R4 WiFi]
         RFID[Door RFID ECU<br/>Arduino + RC522]
+        DOOR[Door Actuator ECU<br/>Arduino + servo]
     end
 
     subgraph AnkaiosWL["Raspberry Pi 5 - Ankaios Workloads"]
         MOSQ[Mosquitto MQTT Broker<br/>:1883]
         BRIDGE[MQTT-to-gRPC Bridge]
+        SOMEIP[OpenSOME/IP Door Provider<br/>UDP :30500]
         KDB[Kuksa Databroker 0.6.0<br/>:55555]
         CAN_PROV[Kuksa CAN Provider<br/>dbc2val + val2dbc]
         SOCK["SocketCAN - can0"]
@@ -54,6 +56,8 @@ graph TB
     RFID -->|Wi-Fi / MQTT JSON| MOSQ
     MOSQ --> BRIDGE
     BRIDGE -->|gRPC Val/Set| KDB
+    DOOR <-->|SOME/IP UDP<br/>30500/30501| SOMEIP
+    SOMEIP <-->|V1 current/target| KDB
     KDB -->|target subscription| CAN_PROV
     CAN_PROV --> SOCK
     SOCK -->|CAN ID 0x120<br/>BlinkerCommand| LED_ECU
@@ -89,6 +93,7 @@ All in-vehicle signal workloads are managed as Podman containers by **Eclipse An
 | --- | --- | --- |
 | `mosquitto-broker` | `eclipse-mosquitto:latest` | MQTT broker for driver-input ECUs |
 | `grpc-mqtt-bridge` | `grpc-mqtt-bridge:main` | Translates MQTT JSON payloads to Kuksa gRPC `Val/Set` updates |
+| `kuksa-opensomeip-door-provider` | `kuksa-opensomeip-door-provider:main` | Maps the Arduino servo Door ECU's SOME/IP UDP state and target events to Kuksa VAL v1 |
 | `kuksa-databroker` | `kuksa-databroker:0.6.0` | Central VSS signal store |
 | `kuksa-can-provider` | `can-provider:0.4.4` | Bidirectional CAN ↔ VSS mapping via DBC files |
 | `kuksa-livi-bridge` | `kuksa-livi-bridge:main` | Subscribes to VSS signals on the Kuksa Databroker and pushes them as telemetry frames to the LIVI head unit on the IVI Raspberry Pi 4 over Ethernet |
@@ -128,6 +133,17 @@ An Arduino with an RC522 RFID reader publishes the scanned card UID as:
 - `Vehicle.Driver.Identifier.Subject` (string)
 
 → **[Full device guide: RFID Door ECU](./device-rfid-ecu)**
+
+### Arduino Door Actuator ECU
+
+The servo Door ECU is independent from the RFID input ECU and from MQTT. It
+exchanges a one-byte SOME/IP notification with the OpenSOME/IP Door Provider:
+
+- ECU state event: service `0x4301`, event `0x8001`, to Pi UDP `:30500`
+- ECU target event: service `0x4301`, event `0x8002`, received on ECU UDP `:30501`
+- VSS path: `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen`
+
+→ **[Full device guide: Door Actuator ECU](./driver-door-ecu-servo-mqtt)**
 
 ### MCU1 LED Control ECU
 

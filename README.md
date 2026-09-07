@@ -1,4 +1,4 @@
-# eclipse-sdv-e2e-demo-blueprint
+# e2e-vehicle-signals
 
 This repository prepares a Vehicle E/E Architecture demo that combines the **Fleet Management** use case from the Eclipse SDV Blueprints project with an in-vehicle **MotorBike Blinker** use case. The demo aligns all signal names to the COVESA Vehicle Signal Specification (VSS) and uses Kuksa Databroker 0.6.0 running as an Eclipse Ankaios 0.7.0 workload.
 
@@ -19,6 +19,9 @@ This repository prepares a Vehicle E/E Architecture demo that combines the **Fle
   - Arduino + joystick (manual input)
   - Arduino + RFID RC522 (driver identifier input)
   - ThreadX board with buttons + OLED (status display)
+- **Door actuator ECU (Arduino Uno R4 WiFi + servo)**
+  - Exchanges the door state and target through minimal SOME/IP UDP notifications
+  - Is connected to Kuksa by the `kuksa-opensomeip-door-provider` Ankaios workload
 
 ## Device code folders
 
@@ -40,6 +43,7 @@ The blinker demo uses the following VSS signals:
 - `Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling`
 - `Vehicle.Body.Lights.Brake.IsActive`
 - `Vehicle.Driver.Identifier.Subject`
+- `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen`
 
 The CAN encoding for these signals is documented in [`docs/vss-can-signals.md`](docs/vss-can-signals.md).
 
@@ -52,6 +56,7 @@ Signal flow used by the Ankaios `vehicle-signals.yaml` workloads:
 3. Kuksa CAN Provider (`val2dbc`) emits CAN command frames (`BlinkerCommand`, CAN ID `288`) to the blinker ECU.
 4. Blinker ECU sends status frames (`BlinkerStatus`, CAN ID `289`) back on the CAN bus.
 5. Kuksa CAN Provider (`dbc2val`) writes those status values back into Kuksa Databroker for subscribers.
+6. `kuksa-opensomeip-door-provider` maps the driver-door target/current value to SOME/IP UDP events at ports `30500` and `30501`.
 
 PlantUML source: [`devices/raspberry-pi5/communication-workflow.puml`](devices/raspberry-pi5/communication-workflow.puml)
 

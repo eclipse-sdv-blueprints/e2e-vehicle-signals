@@ -199,6 +199,7 @@ a {
 .arch-link[data-conn="mqtt_transfer"].active { stroke: #00c37a; }
 .arch-link[data-conn="databroker_signals"].active { stroke: #13d2ff; }
 .arch-link[data-conn="can_feedback"].active { stroke: #ffc94d; }
+.arch-link[data-conn="someip_door"].active { stroke: #c4e84d; }
 .arch-link[data-conn="fms_pipeline"].active { stroke: #69a4ff; }
 .arch-link[data-conn="ankaios_workloads"].active { stroke: #ff8f3a; }
 .arch-link[data-conn="dozzle_monitoring"].active { stroke: #f4699b; }
@@ -380,6 +381,26 @@ a {
   min-height: 96px;
 }
 
+.door-ecu {
+  --node-width: 15%;
+  left: 2%;
+  top: 4%;
+  min-height: 96px;
+}
+
+.someip-door-provider {
+  --node-width: 15%;
+  left: 2%;
+  top: 24%;
+  min-height: 96px;
+}
+
+.door-ecu h3,
+.someip-door-provider h3 {
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
 .threadx-1 h3,
 .threadx-2 h3 {
   font-size: 0.76rem;
@@ -474,6 +495,18 @@ a {
 .someip-label-threadx {
   left: 20%;
   top: 71%;
+  font-weight: 600;
+}
+
+.someip-label-door {
+  left: 6.5%;
+  top: 20%;
+  font-weight: 600;
+}
+
+.grpc-label-door-kuksa {
+  left: 20%;
+  top: 30%;
   font-weight: 600;
 }
 

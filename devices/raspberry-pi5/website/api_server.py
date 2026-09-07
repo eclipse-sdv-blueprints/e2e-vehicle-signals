@@ -83,6 +83,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "containers": {
         "mqtt_broker": ["mosquitto", "mqtt"],
         "mqtt_bridge": ["grpc-mqtt-bridge", "mqtt-bridge"],
+        "someip_door_provider": ["kuksa-opensomeip-door-provider", "someip-door-provider"],
         "kuksa_databroker": ["kuksa-databroker", "databroker"],
         "can_provider": ["kuksa-can-provider", "can-provider"],
         "ankaios": ["ank-server", "ank-agent", "ankaios"],
@@ -661,6 +662,9 @@ def collect_recent_logs(
         "can",
         "signal",
         "update",
+        "door",
+        "some/ip",
+        "someip",
     )
     hits = sum(1 for line in lines if any(word in line.lower() for word in keywords))
     return {
@@ -789,29 +793,39 @@ def build_status(config: dict[str, Any]) -> dict[str, Any]:
     container_inventory_available = len(containers) > 0
 
     bridge_container = grouped.get("mqtt_bridge", [None])[0] if grouped.get("mqtt_bridge") else None
+    someip_door_container = (
+        grouped.get("someip_door_provider", [None])[0]
+        if grouped.get("someip_door_provider")
+        else None
+    )
     databroker_container = (
         grouped.get("kuksa_databroker", [None])[0] if grouped.get("kuksa_databroker") else None
     )
 
     bridge_logs = collect_recent_logs(bridge_container, window)
+    someip_door_logs = collect_recent_logs(someip_door_container, window)
     databroker_logs = collect_recent_logs(databroker_container, window)
     ank_cli = try_query_ank_workloads()
 
     mqtt_container_ok = bool(grouped.get("mqtt_bridge")) and bool(grouped.get("mqtt_broker"))
     can_container_ok = bool(grouped.get("can_provider"))
+    someip_door_container_ok = bool(grouped.get("someip_door_provider"))
 
     if require_container_presence_for_active:
         mqtt_transfer_active = mqtt["active"] and mqtt_container_ok
         databroker_signals_active = kuksa["active"] and can_container_ok
+        someip_door_active = kuksa["active"] and someip_door_container_ok
     else:
         # In containerized website deployments runtime inventory may be unavailable.
         # Do not force container-presence gating in that case.
         if container_inventory_available:
             mqtt_transfer_active = mqtt["active"] and mqtt_container_ok
             databroker_signals_active = kuksa["active"] and can_container_ok
+            someip_door_active = kuksa["active"] and someip_door_container_ok
         else:
             mqtt_transfer_active = mqtt["active"] and (kuksa["active"] or bool(grouped.get("mqtt_bridge")))
             databroker_signals_active = kuksa["active"]
+            someip_door_active = kuksa["active"] and bool(grouped.get("someip_door_provider"))
 
     fms_container_ok = bool(grouped.get("fms_forwarder")) and bool(grouped.get("grafana"))
     fms_endpoint_ok = bool(fleet_grafana.get("active")) or bool(fleet_server.get("active"))
@@ -836,8 +850,10 @@ def build_status(config: dict[str, Any]) -> dict[str, Any]:
     dozzle_active = bool(grouped.get("dozzle")) or bool(dozzle["active"])
 
     bridge_traffic = activity_has_traffic(bridge_logs)
+    someip_door_traffic = activity_has_traffic(someip_door_logs)
     databroker_traffic = activity_has_traffic(databroker_logs)
     bridge_logs_missing = activity_logs_unavailable(bridge_logs)
+    someip_door_logs_missing = activity_logs_unavailable(someip_door_logs)
     databroker_logs_missing = activity_logs_unavailable(databroker_logs)
     observer_changed_paths = set(ensure_string_list(kuksa_signal_observer.get("changed_paths")))
     observer_available = bool(kuksa_signal_observer.get("available"))
@@ -871,6 +887,12 @@ def build_status(config: dict[str, Any]) -> dict[str, Any]:
     databroker_signals_traffic = databroker_signals_traffic or can_bus_traffic
     can_feedback_traffic = feedback_traffic_from_observer or databroker_traffic or can_bus_traffic or (
         assume_traffic_when_logs_unavailable and databroker_signals_active and databroker_logs_missing
+    )
+    someip_door_traffic = someip_door_traffic or (
+        observer_available
+        and "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen" in observer_changed_paths
+    ) or (
+        assume_traffic_when_logs_unavailable and someip_door_active and someip_door_logs_missing
     )
     forced_inactive_connections = set(ensure_string_list(config.get("forced_inactive_connections")))
     fms_forced_inactive = "fms_pipeline" in forced_inactive_connections
@@ -927,6 +949,7 @@ def build_status(config: dict[str, Any]) -> dict[str, Any]:
         },
         "activity": {
             "bridge": bridge_logs,
+            "someip_door_provider": someip_door_logs,
             "databroker": databroker_logs,
             "kuksa_observer": kuksa_signal_observer,
             "can_bus": can_bus_activity,
@@ -959,6 +982,11 @@ def build_status(config: dict[str, Any]) -> dict[str, Any]:
                     if value_to_text(can_bus_activity.get("detail"), "")
                     else "Blinker ECU status feedback to VSS"
                 ),
+            },
+            "someip_door": {
+                "active": someip_door_active,
+                "traffic_detected": someip_door_traffic,
+                "detail": "Kuksa Databroker <-> OpenSOME/IP Door Provider <-> Door ECU (UDP 30500/30501)",
             },
             "fms_pipeline": {
                 "active": fms_active,

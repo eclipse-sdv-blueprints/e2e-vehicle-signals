@@ -89,6 +89,7 @@ function updateConnectionStates(data) {
     "mqtt_transfer",
     "databroker_signals",
     "can_feedback",
+    "someip_door",
     "fms_pipeline",
     "ankaios_workloads",
     "dozzle_monitoring",
@@ -105,7 +106,7 @@ function updateConnectionStates(data) {
   setNodeState("mqtt", mqttService);
   setNodeState("kuksa", kuksaService);
 
-  ["mqtt_transfer", "databroker_signals", "can_feedback", "fms_pipeline", "ankaios_workloads", "dozzle_monitoring"].forEach((key) => {
+  ["mqtt_transfer", "databroker_signals", "can_feedback", "someip_door", "fms_pipeline", "ankaios_workloads", "dozzle_monitoring"].forEach((key) => {
     const state = parseState(safeGet(data, `connections.${key}`, null));
     setNodeState(key, state);
   });
@@ -130,6 +131,15 @@ function updateServiceCards(data) {
     kuksaState === "active" ? "Signals active" : kuksaState === "pending" ? "Reachable, idle" : "Inactive",
     `${kuksaSvc.detail}; traffic: ${kuksaConn.traffic_detected ? "detected" : "not detected"}`,
     kuksaState
+  );
+
+  const someipDoorConn = safeGet(data, "connections.someip_door", { active: false, traffic_detected: false });
+  const someipDoorState = parseState(someipDoorConn);
+  setCardStatus(
+    "svc-someip-door",
+    someipDoorState === "active" ? "Door traffic active" : someipDoorState === "pending" ? "Provider reachable, idle" : "Inactive",
+    `${safeGet(data, "connections.someip_door.detail", "OpenSOME/IP door path")}; traffic: ${someipDoorConn.traffic_detected ? "detected" : "not detected"}`,
+    someipDoorState
   );
 
   const ankConn = safeGet(data, "connections.ankaios_workloads", { active: false, traffic_detected: false });
@@ -221,8 +231,10 @@ function updateEventLog(data, demoMode) {
 
   const bridgeLines = safeGet(data, "activity.bridge.lines", null);
   const dbLines = safeGet(data, "activity.databroker.lines", null);
+  const someipDoorLines = safeGet(data, "activity.someip_door_provider.lines", null);
   if (bridgeLines !== null) events.push(`grpc-mqtt-bridge logs in window: ${bridgeLines}`);
   if (dbLines !== null) events.push(`databroker logs in window: ${dbLines}`);
+  if (someipDoorLines !== null) events.push(`OpenSOME/IP door provider logs in window: ${someipDoorLines}`);
 
   events.push(`containers detected: ${safeGet(data, "containers.running_count", 0)}`);
   events.push(`source mode: ${demoMode ? "simulated fallback" : "live probes"}`);
@@ -258,10 +270,11 @@ function buildDemoStatus() {
       dozzle: { url: "http://127.0.0.1:8080", reachable: true },
     },
     containers: {
-      running_count: 6,
+      running_count: 7,
       running: [
         { runtime: "podman", name: "mosquitto-broker", image: "eclipse-mosquitto", status: "running" },
         { runtime: "podman", name: "grpc-mqtt-bridge", image: "grpc-mqtt-bridge", status: "running" },
+        { runtime: "podman", name: "kuksa-opensomeip-door-provider", image: "kuksa-opensomeip-door-provider", status: "running" },
         { runtime: "podman", name: "kuksa-can-provider", image: "kuksa-can-provider", status: "running" },
         { runtime: "docker", name: "fms-forwarder", image: "fms-forwarder", status: "running" },
         { runtime: "docker", name: "grafana", image: "grafana", status: "running" },
@@ -270,6 +283,7 @@ function buildDemoStatus() {
     },
     activity: {
       bridge: { lines: highTraffic ? 22 : 3, keyword_hits: highTraffic ? 16 : 1 },
+      someip_door_provider: { lines: highTraffic ? 8 : 1, keyword_hits: highTraffic ? 6 : 1 },
       databroker: { lines: highTraffic ? 18 : 2, keyword_hits: highTraffic ? 13 : 1 },
       ank_cli: { detail: "ank CLI unavailable in browser-only demo mode" },
     },
@@ -277,6 +291,7 @@ function buildDemoStatus() {
       mqtt_transfer: { active: true, traffic_detected: highTraffic },
       databroker_signals: { active: true, traffic_detected: highTraffic || lowTraffic },
       can_feedback: { active: true, traffic_detected: highTraffic },
+      someip_door: { active: true, traffic_detected: highTraffic || lowTraffic },
       fms_pipeline: { active: false, traffic_detected: false },
       ankaios_workloads: { active: false, traffic_detected: false, detail: "Ankaios not detected in demo mode" },
       dozzle_monitoring: { active: true, traffic_detected: true },

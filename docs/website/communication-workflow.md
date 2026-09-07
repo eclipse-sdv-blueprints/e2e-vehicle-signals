@@ -14,8 +14,10 @@ sequenceDiagram
     participant Driver
     participant JoystickECU as Joystick ECU<br/>(Arduino)
     participant RfidECU as Door RFID ECU<br/>(Arduino + RC522)
+    participant DoorECU as Door Actuator ECU<br/>(Arduino + servo)
     participant Broker as Mosquitto<br/>(MQTT Broker)
     participant Bridge as MQTT-to-gRPC<br/>Bridge
+    participant Someip as OpenSOME/IP<br/>Door Provider
     participant Kuksa as Kuksa Databroker
     participant CAN as Kuksa CAN<br/>Provider
     participant MCU as Blinker ECU<br/>(MCU1 LED Control)
@@ -34,6 +36,12 @@ sequenceDiagram
     RfidECU->>Broker: MQTT JSON {"Vehicle.Driver.Identifier.Subject":"UID"}
     Broker->>Bridge: Deliver MQTT message
     Bridge->>Kuksa: Set Vehicle.Driver.Identifier.Subject
+
+    Note over DoorECU, Kuksa: Door Actuator Path (VSS <-> SOME/IP UDP)
+    Kuksa->>Someip: V1 target subscription
+    Someip->>DoorECU: SOME/IP target event 0x4301/0x8002
+    DoorECU->>Someip: SOME/IP state event 0x4301/0x8001
+    Someip->>Kuksa: V1 current value Set
 
     Note over MCU, Fleet: Feedback Path (bus state → VSS → fleet)
     MCU->>CAN: CAN frame BlinkerStatus (ID 0x121)
@@ -74,7 +82,21 @@ RFID card tap on RC522 reader
             → Stored in InfluxDB → visible in Grafana "Driver Identifier (RFID)" panel
 ```
 
-### 3. Feedback Path — CAN Status to VSS
+### 3. Door Actuator Path - Kuksa to SOME/IP UDP
+
+```
+Kuksa Databroker target value (VAL v1)
+  -> kuksa-opensomeip-door-provider subscription
+    -> SOME/IP notification 0x4301/0x8002 to Door ECU UDP :30501
+      -> Arduino drives the servo
+        -> SOME/IP notification 0x4301/0x8001 to Pi UDP :30500
+          -> provider writes the Kuksa current value
+```
+
+The provider does not use MQTT or SOME/IP service discovery. Its minimal contract
+is documented in [VSS / CAN Signal Mapping](./signal-mapping#someip-door-actuator-contract).
+
+### 4. Feedback Path — CAN Status to VSS
 
 The LED control ECU reports its current state back to the system:
 
@@ -86,7 +108,7 @@ Arduino LED ECU applies blinker/brake state
         → Available to all VSS subscribers (Fleet, UI, CLI)
 ```
 
-### 4. IVI Telemetry Path — VSS to LIVI Dashboard (Optional)
+### 5. IVI Telemetry Path — VSS to LIVI Dashboard (Optional)
 
 When the IVI Raspberry Pi 4 running [LIVI](https://github.com/f-io/LIVI) is connected via Ethernet, the **Kuksa-to-LIVI Telemetry Bridge** workload mirrors VSS state into the head unit:
 
@@ -110,7 +132,7 @@ Because the bridge subscribes to *current* values on Kuksa, both producers (MQTT
 
 See the **[Kuksa-to-LIVI Telemetry Bridge](./bridge-kuksa-livi)** for the full VSS → LIVI field mapping and configuration reference, and the **[IVI Head Unit (LIVI)](./device-ivi-livi)** page for the Pi 4 device setup.
 
-### 5. ThreadX SOME/IP Relay Path (Optional)
+### 6. ThreadX SOME/IP Relay Path (Optional)
 
 ```
 Mosquitto → AZ3166 Device 1 (MQTT subscriber)

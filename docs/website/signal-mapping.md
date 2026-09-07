@@ -15,6 +15,7 @@ All signals in this demo are aligned to the [COVESA Vehicle Signal Specification
 | `Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling` | boolean | Right turn indicator state |
 | `Vehicle.Body.Lights.Brake.IsActive` | string (`INACTIVE` / `ACTIVE` / `ADAPTIVE`) | Brake light state |
 | `Vehicle.Driver.Identifier.Subject` | string | Driver RFID card UID |
+| `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen` | boolean | Driver-side servo door state and actuator target |
 
 ## CAN Frame Encoding
 
@@ -102,6 +103,19 @@ The Arduino ECUs publish JSON on the MQTT topic `InVehicleTopics`. The keys are 
 ```
 
 The MQTT-to-gRPC bridge maps these keys to Kuksa Databroker `Val/Set` gRPC calls using JSON pointer extraction as configured in `grpc-mqtt.yaml`.
+
+## SOME/IP Door Actuator Contract
+
+The servo door actuator is separate from the MQTT path. Its Arduino ECU and
+`kuksa-opensomeip-door-provider` exchange minimal SOME/IP UDP notifications:
+
+| Direction | Service ID | Event ID | UDP destination | Payload |
+| --- | --- | --- | --- | --- |
+| Door ECU -> provider | `0x4301` | `0x8001` | Pi `:30500` | `0` closed, `1` open |
+| Provider -> Door ECU | `0x4301` | `0x8002` | Door ECU `:30501` | `0` close, `1` open |
+
+The provider writes state events as the Kuksa current value and subscribes to
+the V1 actuator target for commands. Use `kuksa.val.v1` clients for this signal.
 
 ## Default Signal Values
 

@@ -26,12 +26,14 @@ FMS_SERVER_BIND_HOST="${FMS_SERVER_BIND_HOST:-0.0.0.0}"
 FMS_DATABROKER_BIND_HOST="${FMS_DATABROKER_BIND_HOST:-0.0.0.0}"
 FMS_FLEET_ANALYSIS_BIND_HOST="${FMS_FLEET_ANALYSIS_BIND_HOST:-0.0.0.0}"
 FMS_ZENOH_BIND_HOST="${FMS_ZENOH_BIND_HOST:-0.0.0.0}"
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
 export FMS_INFLUXDB_BIND_HOST
 export FMS_GRAFANA_BIND_HOST
 export FMS_SERVER_BIND_HOST
 export FMS_DATABROKER_BIND_HOST
 export FMS_FLEET_ANALYSIS_BIND_HOST
 export FMS_ZENOH_BIND_HOST
+export LOG_LEVEL
 
 log() {
   printf "[start-virtual] %s\n" "$*"
@@ -64,6 +66,7 @@ log "Starting virtual e2e setup (Docker Compose)..."
 log "  Fleet:     $FLEET_COMPOSE_FILE"
 log "  Transport: $FLEET_TRANSPORT_COMPOSE_FILE"
 log "  Virtual:   $VIRTUAL_COMPOSE_FILE"
+log "  LOG_LEVEL: $LOG_LEVEL"
 
 docker compose \
   -f "$FLEET_COMPOSE_FILE" \
@@ -75,11 +78,13 @@ docker compose \
   up --detach --build "$@"
 
 log "All services started."
-log "  Grafana:            http://localhost:3000  (user: sdv / sdv)"
-log "  InfluxDB:           http://localhost:8086"
-log "  FMS Server:         http://localhost:8081"
-log "  Fleet Analysis:     http://localhost:8082"
-log "  Demo Website:       http://localhost:8090"
-log "  Virtual Indicator:  http://localhost:8091"
-log "  MQTT Broker:        localhost:1883"
-log "  Databroker (gRPC):  localhost:55556"
+log "  Note: The ports listed below are Docker Compose internal service ports."
+log "        Published host ports may differ if your compose files or overrides remap them."
+log "  Grafana (internal):            http://localhost:3000  (user: sdv / sdv)"
+log "  InfluxDB (internal):           http://localhost:8086"
+log "  FMS Server (internal):         http://localhost:8081"
+log "  Fleet Analysis (internal):     http://localhost:8082"
+log "  Demo Website (internal):       http://localhost:8090"
+log "  Virtual Indicator (internal):  http://localhost:8091"
+log "  MQTT Broker (internal):        localhost:1883"
+log "  Databroker (gRPC internal):    localhost:55556"

@@ -70,7 +70,7 @@ Download and install the appropriate package for your CPU architecture from [Arm
 
 Ensure submodules are initialized:
 ```bash
-cd ../../..  # Navigate to eclipse-sdv-e2e-demo-blueprint root
+cd ../../..  # Navigate to e2e-vehicle-signals root
 git submodule init
 git submodule update --recursive
 ```

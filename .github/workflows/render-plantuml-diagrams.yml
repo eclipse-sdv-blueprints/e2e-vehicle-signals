@@ -39,27 +39,43 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          uid_gid="$(id -u):$(id -g)"
           files=(
             "docs/full-architecture.puml"
             "devices/raspberry-pi5/communication-workflow.puml"
           )
 
           for format in png svg; do
-            docker run --rm \
-              -v "${GITHUB_WORKSPACE}:/workspace" \
-              -w /workspace \
-              plantuml/plantuml:latest \
-              "-t${format}" \
-              "${files[@]}"
+            for src in "${files[@]}"; do
+              docker run --rm \
+                --user "${uid_gid}" \
+                -v "${GITHUB_WORKSPACE}:/workspace" \
+                -w /workspace \
+                plantuml/plantuml:latest \
+                "-t${format}" \
+                "${src}"
+
+              # PlantUML versions can emit either <name>.<format> or <name>.puml.<format>.
+              # Normalize to <name>.<format> so upload paths are stable.
+              base="${src%.puml}"
+              if [[ -f "${src}.${format}" && ! -f "${base}.${format}" ]]; then
+                mv "${src}.${format}" "${base}.${format}"
+              fi
+            done
           done
+
+          echo "Rendered files:"
+          find docs devices/raspberry-pi5 -maxdepth 2 -type f \
+            \( -name "full-architecture*.png" -o -name "full-architecture*.svg" -o -name "communication-workflow*.png" -o -name "communication-workflow*.svg" \) \
+            -print | sort
 
       - name: Upload rendered diagrams
         uses: actions/upload-artifact@v4
         with:
           name: plantuml-diagrams-${{ github.sha }}
           path: |
-            docs/full-architecture.png
-            docs/full-architecture.svg
-            devices/raspberry-pi5/communication-workflow.png
-            devices/raspberry-pi5/communication-workflow.svg
+            docs/full-architecture*.png
+            docs/full-architecture*.svg
+            devices/raspberry-pi5/communication-workflow*.png
+            devices/raspberry-pi5/communication-workflow*.svg
           if-no-files-found: error

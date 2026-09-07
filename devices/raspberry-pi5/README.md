@@ -9,6 +9,7 @@ This node runs the Fleet Management Blueprint components plus the vehicle signal
 - **Eclipse Kuksa Databroker 0.6.0** workload
 - **Eclipse Mosquitto** MQTT broker workload
 - **MQTT-to-gRPC bridge** workload (for Kuksa Databroker)
+- **Kuksa OpenSOME/IP door provider** workload (for the Arduino servo Door ECU)
 - **SocketCAN** interface (e.g., `can0` at 500 kbit/s)
 - **Kuksa CAN Provider** to translate CAN → VSS
 - **Fleet Management Blueprint** services (as defined in the upstream repository)
@@ -27,8 +28,8 @@ dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000
 - install git and clone this repo:
   - ````sudo apt update ````
   - ````sudo apt install git ````
-  - ````git clone https://github.com/chheis/eclipse-sdv-e2e-demo-blueprint --recurse-submodules````
-  - ````cd eclipse-sdv-e2e-demo-blueprint/devices/raspberry-pi5/ ````
+  - ````git clone https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals --recurse-submodules````
+  - ````cd e2e-vehicle-signals/devices/raspberry-pi5/ ````
   - ````chmod +x setup.sh ````
   - Hint: if you miss --recurse-submodules in the begining use: ````git submodule init ```` and ````git pull --recurse-submodules````
 - use the setup.sh
@@ -54,7 +55,7 @@ dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000
       3. "motorbike-blinker-command.dbc"
       4. "motorbike-blinker-defaults.json"
 - Maybe use this to init the network: ````docker swarm init ````  
-- start the workload from eclipse-sdv-e2e-demo-blueprint root folder: ````sudo ./start-fleet-and-ankaios.sh```` 
+- start the workload from e2e-vehicle-signals root folder: ````sudo ./start-fleet-and-ankaios.sh```` 
 - the startup script also starts **Dozzle** (default `http://<pi-ip>:8080`) for container log/health visibility
 - the startup script builds the **Pi5 website container image** and the Ankaios manifest starts `pi5-demo-website` on `http://<pi-ip>:8090`
 - for the website workload config, edit `devices/raspberry-pi5/website/site-config.json`; the startup script injects that JSON into the Ankaios website workload before applying the manifest
@@ -68,9 +69,9 @@ Hint: First Run takes a long time as all images for fleet-management blueprint m
 
 Use the VSS mapping defined in [`docs/vss-can-signals.md`](../../docs/vss-can-signals.md) to wire the CAN provider to the Arduino blinker ECU.
 
-## Ankaios workload (Mosquitto + MQTT bridge + Kuksa Databroker + CAN provider)
+## Ankaios workload (MQTT, CAN, and SOME/IP door provider)
 
-Use the example Ankaios manifest in `devices/raspberry-pi5/ankaios/vehicle-signals.yaml`. It defines the Mosquitto MQTT broker, MQTT-to-gRPC bridge, Kuksa Databroker, and the Kuksa CAN Provider containers as Podman workloads.
+Use the example Ankaios manifest in `devices/raspberry-pi5/ankaios/vehicle-signals.yaml`. It defines the Mosquitto MQTT broker, MQTT-to-gRPC bridge, Kuksa Databroker, Kuksa CAN Provider, and the OpenSOME/IP Door Provider as Podman workloads.
 
 1. Copy `devices/raspberry-pi5/ankaios/vehicle-signals.yaml` into your Ankaios manifests directory.
 2. Copy CAN provider files to `/opt/kuksa/can-provider/` on the Raspberry Pi 5:
@@ -82,8 +83,21 @@ Use the example Ankaios manifest in `devices/raspberry-pi5/ankaios/vehicle-signa
    - `port` in `[can]` to your SocketCAN device (default: `can0`)
    - `ip` and `port` in `[general]` to your Kuksa Databroker endpoint
 4. Build the MQTT-to-gRPC bridge image from `devices/raspberry-pi5/grpc-mqtt-bridge` and tag it as `grpc-mqtt-bridge:latest`.
+5. Build the OpenSOME/IP Door Provider using the repository root as build context:
+
+```bash
+docker build -f devices/raspberry-pi5/kuksa-opensomeip-door-provider/Dockerfile -t kuksa-opensomeip-door-provider:local .
+```
+
+The manifest mounts the `kuksa_opensomeip_door_provider_config` block at
+`/config/kuksa-opensomeip-door-provider.conf`. Update its `doorHost` value for
+the Arduino Door ECU before applying the manifest. The matching `.conf` file is
+provided for local runs.
 
 The manifest uses host networking so the CAN provider can reach the databroker at `localhost:55555`, the MQTT bridge can reach Mosquitto at `localhost:1883`, and Mosquitto listens on `localhost:1883`. Point Arduino MQTT broker IPs to the Raspberry Pi 5 address (default in `mcu2-joystick-input.ino` and `driver-input-ecu-door.ino` is `192.168.88.100`).
+
+The Door ECU does not use MQTT. It exchanges SOME/IP UDP events with the provider
+on Pi port `30500` and Door ECU port `30501`.
 
 ## Ankaios dashboard workaround (CLI workload view)
 

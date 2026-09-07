@@ -55,6 +55,8 @@
             <path class="arch-link" data-conn="can_feedback" d="M1002 350 L978 350" />
             <path class="arch-link" data-conn="mqtt_transfer" d="M330 372 L250 430" />
             <path class="arch-link" d="M264 522 L264 540" />
+            <path class="arch-link" data-conn="someip_door" d="M156 120 L156 180" />
+            <path class="arch-link" data-conn="someip_door" d="M190 228 L520 228 L624 290" />
             <path class="arch-link" data-conn="fms_pipeline" d="M522 138 L708 284" />
             <path class="arch-link" data-conn="fms_pipeline" d="M708 284 L708 138" />
             <path class="arch-link" data-conn="fms_pipeline" d="M792 138 L804 138" />
@@ -92,6 +94,13 @@
           </div>
           <div class="conn-label someip-label-threadx">
             <span>someIP</span>
+          </div>
+          <div class="conn-label someip-label-door" data-conn="someip_door">
+            <span>SOME/IP UDP 30500/30501</span>
+          </div>
+          <div class="conn-label grpc-label-door-kuksa" data-conn="someip_door">
+            <img src="./assets/grpc-icon-color.png" alt="gRPC logo">
+            <span>gRPC</span>
           </div>
 
           <article class="node driver node-large" data-service="mqtt_transfer">
@@ -144,7 +153,7 @@
               <h3>Ankaios</h3>
               <img class="node-logo" src="./assets/Ankaios.png" alt="Ankaios logo">
             </div>
-            <p>Controls Mosquitto, bridge, CAN provider, and website workloads.</p>
+            <p>Controls MQTT, CAN, OpenSOME/IP door provider, and website workloads.</p>
           </article>
 
           <article class="node node-small csv-provider" data-service="fms_pipeline">
@@ -185,6 +194,19 @@
               <img class="node-logo" src="./assets/ThreadX.png" alt="ThreadX logo">
             </div>
             <p>MQTT subscriber peer with SOME/IP state exchange.</p>
+          </article>
+
+          <article class="node door-ecu" data-service="someip_door">
+            <div class="node-head">
+              <h3>Door Actuator ECU</h3>
+              <img class="node-logo" src="./assets/ArduinoCommunityLogo-up.png" alt="Arduino logo">
+            </div>
+            <p>Arduino servo endpoint: door state and target events.</p>
+          </article>
+
+          <article class="node someip-door-provider" data-service="someip_door">
+            <h3>OpenSOME/IP Door Provider</h3>
+            <p>Maps UDP door events to Kuksa current and target values.</p>
           </article>
 
           <article class="node threadx-2 node-small">
@@ -251,6 +273,15 @@
           <div class="pulse-track"><span class="pulse-dot"></span></div>
         </article>
 
+        <article class="lane" data-conn="someip_door">
+          <header>
+            <h3>Door SOME/IP path</h3>
+            <span class="lane-state" data-lane-state="someip_door">Unknown</span>
+          </header>
+          <p>Kuksa target/current value &lt;-&gt; OpenSOME/IP provider &lt;-&gt; Arduino door servo</p>
+          <div class="pulse-track"><span class="pulse-dot"></span></div>
+        </article>
+
         <article class="lane" data-conn="fms_pipeline">
           <header>
             <h3>Fleet path</h3>
@@ -290,7 +321,7 @@
     <section id="dashboards" class="view" aria-label="Dashboards and Runtime">
       <div class="section-head">
         <h2>Runtime Status and Embedded Dashboards</h2>
-        <p>Main focus: MQTT transfer, Databroker signals, Ankaios workloads, and Dozzle containers.</p>
+        <p>Main focus: MQTT, CAN, the OpenSOME/IP door path, Ankaios workloads, and Dozzle containers.</p>
       </div>
 
       <div class="status-grid">
@@ -302,6 +333,12 @@
 
         <article class="status-card" id="svc-kuksa">
           <h3>Kuksa Databroker</h3>
+          <p class="status-text">Unknown</p>
+          <small class="status-detail">No probe yet</small>
+        </article>
+
+        <article class="status-card" id="svc-someip-door">
+          <h3>Door SOME/IP Provider</h3>
           <p class="status-text">Unknown</p>
           <small class="status-detail">No probe yet</small>
         </article>

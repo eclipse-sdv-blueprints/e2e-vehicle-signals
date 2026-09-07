@@ -31,7 +31,7 @@ Add the following plugin entries to the `plugins` array in `docusaurus.config.js
   {
     name: "e2e-demo-blueprint",
     sourceBaseUrl:
-      "https://raw.githubusercontent.com/chheis/eclipse-sdv-e2e-demo-blueprint/main/docs/website",
+      "https://raw.githubusercontent.com/eclipse-sdv-blueprints/e2e-vehicle-signals/main/docs/website",
     outDir: "docs/e2e-demo-blueprint",
     documents: [
       "introduction.md",
@@ -88,7 +88,7 @@ In `src/pages/index.tsx` (or the equivalent homepage component), add a card entr
 <BlueprintCard
   title="E2E Demo Blueprint"
   description="An end-to-end Vehicle E/E Architecture demo combining Fleet Management with a MotorBike Blinker use case using physical Arduino ECUs, CAN bus and Eclipse Ankaios + Kuksa."
-  href="https://github.com/chheis/eclipse-sdv-e2e-demo-blueprint"
+  href="https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals"
 />
 ```
 
@@ -97,4 +97,4 @@ In `src/pages/index.tsx` (or the equivalent homepage component), add a card entr
 - **Mermaid diagrams**: The documentation uses Mermaid `graph` and `sequenceDiagram` syntax. The blueprints-website already has `@docusaurus/theme-mermaid` enabled.
 - **No external images**: All diagrams are embedded as Mermaid code blocks, so no separate image files need to be fetched.
 - **Docusaurus admonitions**: The setup guide uses `:::tip` and `:::note` admonitions which are natively supported.
-- **Source URL**: Update `sourceBaseUrl` if the repository moves to the `eclipse-sdv-blueprints` GitHub organisation.
+- **Source URL**: Keep `sourceBaseUrl` aligned with the default branch and docs path of `eclipse-sdv-blueprints/e2e-vehicle-signals`.

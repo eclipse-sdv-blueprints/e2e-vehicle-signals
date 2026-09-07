@@ -45,21 +45,37 @@ jobs:
           )
 
           for format in png svg; do
-            docker run --rm \
-              -v "${GITHUB_WORKSPACE}:/workspace" \
-              -w /workspace \
-              plantuml/plantuml:latest \
-              "-t${format}" \
-              "${files[@]}"
+            for src in "${files[@]}"; do
+              docker run --rm \
+                -v "${GITHUB_WORKSPACE}:/workspace" \
+                -w /workspace \
+                plantuml/plantuml:latest \
+                "-t${format}" \
+                "${src}"
+
+              # PlantUML versions can emit either <name>.<format> or <name>.puml.<format>.
+              # Normalize to <name>.<format> so upload paths are stable.
+              base="${src%.puml}"
+              if [[ -f "${src}.${format}" && ! -f "${base}.${format}" ]]; then
+                mv "${src}.${format}" "${base}.${format}"
+              fi
+            done
           done
+
+          echo "Rendered files:"
+          ls -1 \
+            docs/full-architecture*.png \
+            docs/full-architecture*.svg \
+            devices/raspberry-pi5/communication-workflow*.png \
+            devices/raspberry-pi5/communication-workflow*.svg
 
       - name: Upload rendered diagrams
         uses: actions/upload-artifact@v4
         with:
           name: plantuml-diagrams-${{ github.sha }}
           path: |
-            docs/full-architecture.png
-            docs/full-architecture.svg
-            devices/raspberry-pi5/communication-workflow.png
-            devices/raspberry-pi5/communication-workflow.svg
+            docs/full-architecture*.png
+            docs/full-architecture*.svg
+            devices/raspberry-pi5/communication-workflow*.png
+            devices/raspberry-pi5/communication-workflow*.svg
           if-no-files-found: error

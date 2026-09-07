@@ -1,0 +1,58 @@
+{
+  "probe_timeout_seconds": 1.2,
+  "status_cache_seconds": 5.0,
+  "log_window_seconds": 45,
+  "assume_traffic_when_logs_unavailable": true,
+  "require_container_presence_for_active": false,
+  "ankaios_assume_active_when_signal_workloads_up": false,
+  "forced_inactive_connections": [],
+  "mqtt": {
+    "host": "mosquitto",
+    "port": 1883
+  },
+  "kuksa": {
+    "host": "databroker",
+    "port": 55556
+  },
+  "ankaios_dashboard_url": null,
+  "dozzle_url": null,
+  "can_observer": {
+    "enabled": false
+  },
+  "fleet": {
+    "grafana_url": "http://grafana:3000",
+    "fms_server_url": "http://fms-server:8081"
+  },
+  "kuksa_observer": {
+    "enabled": true,
+    "paths": [
+      "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
+      "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
+      "Vehicle.Body.Lights.Brake.IsActive",
+      "Vehicle.Driver.Identifier.Subject"
+    ],
+    "command_paths": [
+      "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
+      "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
+      "Vehicle.Body.Lights.Brake.IsActive",
+      "Vehicle.Driver.Identifier.Subject"
+    ],
+    "feedback_paths": [
+      "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
+      "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
+      "Vehicle.Body.Lights.Brake.IsActive"
+    ],
+    "token": "",
+    "token_file": "",
+    "tls": false,
+    "root_ca": "",
+    "tls_server_name": ""
+  },
+  "containers": {
+    "mqtt_broker": ["mosquitto"],
+    "mqtt_bridge": ["grpc-mqtt-bridge"],
+    "kuksa_databroker": ["databroker"],
+    "livi_bridge": ["kuksa-livi-bridge"],
+    "virtual_indicator_ui": ["virtual-indicator-ui"]
+  }
+}

@@ -1,0 +1,249 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+# Custom TOSCA node types for the E2E Vehicle Signals virtual setup.
+# Import into Eclipse Winery 3.x via the type repository.
+
+tosca_definitions_version: tosca_simple_yaml_1_3
+
+node_types:
+
+  # ── Host ───────────────────────────────────────────────────────────────────
+  sdv.nodes.DockerComposeHost:
+    derived_from: tosca.nodes.Compute
+    description: >
+      Any Linux host with Docker Engine >= 24 and Docker Compose v2.
+    properties:
+      docker_version:
+        type: string
+        required: true
+        default: ">=24.0"
+      os_type:
+        type: string
+        default: Linux
+    capabilities:
+      host:
+        type: tosca.capabilities.Compute
+        valid_source_types: [sdv.nodes.Container, sdv.nodes.FleetManagementStack]
+
+  # ── Abstract container base ────────────────────────────────────────────────
+  sdv.nodes.Container:
+    derived_from: tosca.nodes.Container.Application.Docker
+    description: >
+      Abstract base for all Docker Compose service nodes.
+      Adds common container properties.
+    properties:
+      image:
+        type: string
+        required: false
+        description: >
+          Container image reference. May be omitted when the image is built
+          from a source tree artifact (build: context).
+      restart_policy:
+        type: string
+        default: always
+        constraints:
+          - valid_values: [always, on-failure, unless-stopped, "no"]
+    requirements:
+      - host:
+          capability: tosca.capabilities.Compute
+          node: sdv.nodes.DockerComposeHost
+          relationship: tosca.relationships.HostedOn
+
+  # ── Mosquitto MQTT broker ──────────────────────────────────────────────────
+  sdv.nodes.MosquittoMQTTBroker:
+    derived_from: sdv.nodes.Container
+    description: Eclipse Mosquitto MQTT broker. Accepts anonymous connections on port 1883.
+    properties:
+      image:
+        type: string
+        default: "docker.io/eclipse-mosquitto:latest"
+      port:
+        type: integer
+        default: 1883
+    capabilities:
+      mqtt_endpoint:
+        type: tosca.capabilities.Endpoint
+        properties:
+          port: { get_property: [SELF, port] }
+          protocol: tcp
+
+  # ── Kuksa Databroker ───────────────────────────────────────────────────────
+  sdv.nodes.KuksaDatabroker:
+    derived_from: sdv.nodes.Container
+    description: >
+      Eclipse Kuksa Databroker 0.6.0 – central VSS signal store.
+      Exposes gRPC (kuksa.val.v1.Val) on port 55555.
+    properties:
+      image:
+        type: string
+        default: "ghcr.io/eclipse-kuksa/kuksa-databroker:0.6.0"
+      port:
+        type: integer
+        default: 55555
+      vss_version:
+        type: string
+        default: "4.2"
+    capabilities:
+      grpc_endpoint:
+        type: tosca.capabilities.Endpoint
+        properties:
+          port: { get_property: [SELF, port] }
+          protocol: grpc
+
+  # ── gRPC-MQTT bridge ───────────────────────────────────────────────────────
+  sdv.nodes.GrpcMqttBridge:
+    derived_from: sdv.nodes.Container
+    description: >
+      Translates MQTT JSON payloads on InVehicleTopics into Kuksa Databroker
+      Val/Set gRPC calls.
+      Source: devices/raspberry-pi5/grpc-mqtt-bridge/ (reused unchanged).
+    properties:
+      image:
+        type: string
+        default: "ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main"
+    requirements:
+      - connects_to_mqtt:
+          capability: tosca.capabilities.Endpoint
+          node: sdv.nodes.MosquittoMQTTBroker
+          relationship: sdv.relationships.PublishesToMQTT
+      - connects_to_databroker:
+          capability: tosca.capabilities.Endpoint
+          node: sdv.nodes.KuksaDatabroker
+          relationship: sdv.relationships.SubscribesViaGRPC
+
+  # ── Kuksa-to-LIVI bridge ───────────────────────────────────────────────────
+  sdv.nodes.KuksaLiviBridge:
+    derived_from: sdv.nodes.Container
+    description: >
+      Subscribes to VSS signals on Kuksa Databroker and pushes them to a LIVI
+      head unit via Socket.IO.  In virtual mode the LIVI connection is optional.
+      Source: devices/raspberry-pi5/grpc-to-LIVI-telemetry-bridge/ (reused unchanged).
+    properties:
+      image:
+        type: string
+        default: "ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-livi-bridge:main"
+    requirements:
+      - connects_to_databroker:
+          capability: tosca.capabilities.Endpoint
+          node: sdv.nodes.KuksaDatabroker
+          relationship: sdv.relationships.SubscribesViaGRPC
+
+  # ── Pi5 Demo Website ───────────────────────────────────────────────────────
+  sdv.nodes.Pi5DemoWebsite:
+    derived_from: sdv.nodes.Container
+    description: >
+      Live architecture / signal-flow dashboard served on port 8090.
+      Built from devices/raspberry-pi5/website/ (reused unchanged).
+    properties:
+      image:
+        type: string
+        default: "pi5-demo-website:virtual"
+      port:
+        type: integer
+        default: 8090
+    capabilities:
+      http_endpoint:
+        type: tosca.capabilities.Endpoint
+        properties:
+          port: { get_property: [SELF, port] }
+          protocol: http
+
+  # ── Virtual Indicator UI (NEW) ─────────────────────────────────────────────
+  sdv.nodes.VirtualIndicatorUI:
+    derived_from: sdv.nodes.Container
+    description: >
+      Virtual replacement for three physical ECUs:
+        • Arduino joystick ECU      → Indicator Input panel (buttons, publishes to MQTT)
+        • Arduino RFID door ECU     → Driver ID input (text field, publishes to MQTT)
+        • WS2812 LED-strip ECU      → Indicator Actor panel (animated 8-LED SVG via SSE)
+      Source: virtual-setup/virtual-indicator-ui/ (new).
+    properties:
+      image:
+        type: string
+        default: "virtual-indicator-ui:latest"
+      port:
+        type: integer
+        default: 8091
+      mqtt_topic:
+        type: string
+        default: "InVehicleTopics"
+      vss_paths:
+        type: list
+        entry_schema:
+          type: string
+        default:
+          - "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling"
+          - "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling"
+          - "Vehicle.Body.Lights.Brake.IsActive"
+          - "Vehicle.Driver.Identifier.Subject"
+    capabilities:
+      http_endpoint:
+        type: tosca.capabilities.Endpoint
+        properties:
+          port: { get_property: [SELF, port] }
+          protocol: http
+    requirements:
+      - publishes_to_mqtt:
+          capability: tosca.capabilities.Endpoint
+          node: sdv.nodes.MosquittoMQTTBroker
+          relationship: sdv.relationships.PublishesToMQTT
+      - subscribes_to_databroker:
+          capability: tosca.capabilities.Endpoint
+          node: sdv.nodes.KuksaDatabroker
+          relationship: sdv.relationships.SubscribesViaGRPC
+
+  # ── Fleet Management Stack (composite) ────────────────────────────────────
+  sdv.nodes.FleetManagementStack:
+    derived_from: tosca.nodes.Root
+    description: >
+      Composite node covering the entire Fleet Management Docker Compose stack
+      (FMS Forwarder, Zenoh Router, FMS Consumer, InfluxDB, Grafana, FMS Server,
+      Jakarta EE analytics backend).
+      Reuses: external/fleet-management/fms-blueprint-compose-zenoh.yaml (unchanged).
+    properties:
+      compose_file:
+        type: string
+        required: true
+      influxdb_port:
+        type: integer
+        default: 8086
+      grafana_port:
+        type: integer
+        default: 3000
+      fms_server_port:
+        type: integer
+        default: 8081
+      analytics_port:
+        type: integer
+        default: 8082
+    capabilities:
+      grafana_endpoint:
+        type: tosca.capabilities.Endpoint
+        properties:
+          port: { get_property: [SELF, grafana_port] }
+          protocol: http
+      fms_api_endpoint:
+        type: tosca.capabilities.Endpoint
+        properties:
+          port: { get_property: [SELF, fms_server_port] }
+          protocol: http
+    requirements:
+      - host:
+          capability: tosca.capabilities.Compute
+          node: sdv.nodes.DockerComposeHost
+          relationship: tosca.relationships.HostedOn
+      - receives_from_databroker:
+          capability: tosca.capabilities.Endpoint
+          node: sdv.nodes.KuksaDatabroker
+          relationship: sdv.relationships.ForwardsToFleet

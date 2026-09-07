@@ -1,0 +1,61 @@
+# /********************************************************************************
+# * Copyright (c) 2026 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+# Virtual-setup adaptation of devices/raspberry-pi5/ankaios/grpc-livi.yaml.
+# Differences from the original:
+#   - kuksa.target uses the Fleet Management Databroker service so the LIVI bridge observes
+#     the same signal source as the FMS forwarder and dashboards
+#   - livi.url is set to localhost:4000 (no physical LIVI head unit in virtual mode)
+#     The bridge starts successfully but the Socket.IO connection to LIVI will not
+#     succeed unless a LIVI instance is separately running on the host.
+# Only the blinker-relevant mappings are included; for the full fleet telemetry
+# mappings see devices/raspberry-pi5/ankaios/grpc-livi.yaml.
+
+kuksa:
+  target: "databroker:55556"
+
+livi:
+  # No LIVI head unit in virtual mode — bridge runs but Socket.IO connection will fail.
+  # Point to a running LIVI instance if needed: ws://<host>:4000
+  url: "ws://host.docker.internal:4000"
+
+push:
+  intervalMs: 250
+  sendInitialSnapshot: true
+
+mappings:
+  - vssPath: Vehicle.Body.Lights.Brake.IsActive
+    liviField: hazards
+    type: bool
+    enumMap:
+      INACTIVE: false
+      ACTIVE: false
+      ADAPTIVE: true
+
+  - vssPath: Vehicle.Driver.Identifier.Subject
+    liviField: driverId
+    type: string
+
+composites:
+  - liviField: turn
+    inputs:
+      - Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling
+      - Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling
+    rules:
+      - when:
+          Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling: true
+        value: left
+      - when:
+          Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true
+        value: right
+      - value: none

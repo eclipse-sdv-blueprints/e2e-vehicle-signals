@@ -1,0 +1,4 @@
+TOSCA-Meta-File-Version: 1.1
+CSAR-Version: 1.1
+Created-By: Eclipse Winery 3.x
+Entry-Definitions: Definitions/service-template.yaml

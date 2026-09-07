@@ -28,6 +28,7 @@ This page lists all hardware components needed to reproduce the full demo setup.
 | 1 | Android smartphone (optional) | Android Auto / Apple CarPlay client for LIVI | Pairs with the Pi 4 over Wi-Fi + Bluetooth |
 | 1 | [Carlinkit CPC200-CCPA dongle](https://www.carlinkit.com/) (optional) | Adds wireless Apple CarPlay to LIVI | USB dongle plugged into the Pi 4 |
 | 1 | Arduino Uno R4 WiFi + RC522 RFID Module | Door / driver-ID ECU | SPI-connected RFID reader |
+| 1 | Arduino Uno R4 WiFi + SG90-compatible servo | Door actuator ECU | Wi-Fi SOME/IP UDP endpoint; servo on D9 |
 | 2 | [MXChip AZ3166](https://www.seeedstudio.com/AZ3166-IOT-Developer-Kit.html) | ThreadX SOME/IP extension | Wi-Fi + buttons + OLED display |
 
 ## Wiring Summary
@@ -49,6 +50,12 @@ The joystick connects to analog pins on the Arduino. No CAN hardware is needed �
 | INT | D2 |
 
 The WS2812 LED strip data line connects to a digital output pin (see sketch for the exact pin).
+
+### Door Actuator ECU (Arduino Uno R4 WiFi + Servo)
+
+Connect the servo signal wire to `D9`, power it from a suitable 5V supply, and
+connect its ground to Arduino ground. The ECU exchanges SOME/IP UDP events with
+the Pi provider on ports `30500` and `30501`; it does not require MQTT.
 
 ### Raspberry Pi 5 + CAN Hat
 
@@ -74,10 +81,13 @@ Connect the **CAN_H** and **CAN_L** lines between the Waveshare CAN Hat on the R
 | Docker + Docker Compose | Latest from Ubuntu repos |
 | Arduino IDE | 2.x |
 | Python | 3.11+ (for MQTT-to-gRPC bridge) |
+| C++ toolchain / Docker | C++ OpenSOME/IP Door Provider build |
 
 ## Device Documentation
 
 For detailed setup, configuration and firmware instructions for each device, see:
+
+- [Door Actuator ECU](./driver-door-ecu-servo-mqtt) - Servo wiring and SOME/IP UDP configuration
 
 - [Joystick Input ECU](./device-joystick-ecu) — Arduino joystick wiring and MQTT config
 - [LED Control ECU](./device-led-ecu) — MCP2515 wiring, CAN protocol and LED allocation

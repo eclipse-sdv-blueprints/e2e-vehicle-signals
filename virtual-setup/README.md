@@ -53,10 +53,10 @@ virtual-setup/
 | Component | Source path | How referenced |
 |-|-|-|
 | gRPC-MQTT bridge image | `devices/raspberry-pi5/grpc-mqtt-bridge/` | `ghcr.io/…/grpc-mqtt-bridge:main` |
-| Kuksa-LIVI bridge image | `devices/raspberry-pi5/grpc-to-LIVI-telemetry-bridge/` | `ghcr.io/…/kuksa-livi-bridge:main` |
+| Kuksa-LIVI bridge image (optional) | `devices/raspberry-pi5/grpc-to-LIVI-telemetry-bridge/` | `ghcr.io/…/kuksa-livi-bridge:main` (disabled by default in `virtual-e2e-compose.yaml`) |
 | Pi5 Demo Website | `devices/raspberry-pi5/website/` | `build: context: ../devices/raspberry-pi5/website` |
 | grpc-mqtt signal mappings | `devices/raspberry-pi5/ankaios/grpc-mqtt.yaml` | adapted → `config/grpc-mqtt.yaml` (broker/target changed to service names) |
-| grpc-livi mappings | `devices/raspberry-pi5/ankaios/grpc-livi.yaml` | adapted → `config/grpc-livi.yaml` (minimal blinker subset) |
+| grpc-livi mappings (optional) | `devices/raspberry-pi5/ankaios/grpc-livi.yaml` | adapted → `config/grpc-livi.yaml` (minimal blinker subset; only needed when enabling LIVI bridge) |
 | Fleet Management stack | `external/fleet-management/` | Started via `start-virtual-setup.sh` using `fms-blueprint-compose.yaml` + `fms-blueprint-compose-zenoh.yaml` |
 
 ## Quick start
@@ -107,6 +107,8 @@ Open **http://localhost:8091** to get:
 The input panel publishes VSS JSON to `InVehicleTopics` MQTT with the exact same schema the physical joystick ECU uses. `grpc-mqtt-bridge` requires no changes.
 
 The actor panel subscribes to Kuksa Databroker via Server-Sent Events (`GET /api/sse/signals`) and updates the LED state every 200 ms.
+
+The Kuksa LIVI bridge is optional in this virtual setup and is disabled by default (commented out in `virtual-e2e-compose.yaml`).
 
 ## Fleet Management
 

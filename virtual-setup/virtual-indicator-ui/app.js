@@ -20,6 +20,11 @@ const PATH_LEFT   = 'Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling';
 const PATH_RIGHT  = 'Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling';
 const PATH_BRAKE  = 'Vehicle.Body.Lights.Brake.IsActive';
 const PATH_DRIVER = 'Vehicle.Driver.Identifier.Subject';
+const TRACKED_PATHS = [PATH_LEFT, PATH_RIGHT, PATH_BRAKE, PATH_DRIVER];
+
+// Last known VSS values. The SSE endpoint may emit only changed fields, so
+// we merge partial updates into this cache before rendering.
+const latestSignals = Object.create(null);
 
 // ── Local button state ────────────────────────────────────────────────────────
 const local = { left: false, right: false, brake: false };
@@ -87,19 +92,25 @@ function applyLEDState(leftOn, rightOn, brakeOn) {
 }
 
 function handleSSEData(data) {
-  const leftOn  = data[PATH_LEFT]  === true;
-  const rightOn = data[PATH_RIGHT] === true;
-  const brakeVal = data[PATH_BRAKE];
+  for (const path of TRACKED_PATHS) {
+    if (Object.prototype.hasOwnProperty.call(data, path)) {
+      latestSignals[path] = data[path];
+    }
+  }
+
+  const leftOn  = latestSignals[PATH_LEFT]  === true;
+  const rightOn = latestSignals[PATH_RIGHT] === true;
+  const brakeVal = latestSignals[PATH_BRAKE];
   const brakeOn  = brakeVal === 'ACTIVE' || brakeVal === 'ADAPTIVE';
 
   applyLEDState(leftOn, rightOn, brakeOn);
 
   // Update VSS table
   const fmt = (v) => (v !== undefined && v !== null) ? String(v) : '—';
-  vssLeft.textContent  = fmt(data[PATH_LEFT]);
-  vssRight.textContent = fmt(data[PATH_RIGHT]);
-  vssBrake.textContent = fmt(data[PATH_BRAKE]);
-  vssDriver.textContent = fmt(data[PATH_DRIVER]);
+  vssLeft.textContent  = fmt(latestSignals[PATH_LEFT]);
+  vssRight.textContent = fmt(latestSignals[PATH_RIGHT]);
+  vssBrake.textContent = fmt(latestSignals[PATH_BRAKE]);
+  vssDriver.textContent = fmt(latestSignals[PATH_DRIVER]);
 
   vssLeft.className  = `vss-val${leftOn  ? ' val--on'    : ''}`;
   vssRight.className = `vss-val${rightOn ? ' val--on'    : ''}`;

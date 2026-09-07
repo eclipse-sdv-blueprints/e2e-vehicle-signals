@@ -30,18 +30,21 @@
       "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
       "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
       "Vehicle.Body.Lights.Brake.IsActive",
-      "Vehicle.Driver.Identifier.Subject"
+      "Vehicle.Driver.Identifier.Subject",
+      "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
     ],
     "command_paths": [
       "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
       "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
       "Vehicle.Body.Lights.Brake.IsActive",
-      "Vehicle.Driver.Identifier.Subject"
+      "Vehicle.Driver.Identifier.Subject",
+      "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
     ],
     "feedback_paths": [
       "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
       "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
-      "Vehicle.Body.Lights.Brake.IsActive"
+      "Vehicle.Body.Lights.Brake.IsActive",
+      "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
     ],
     "token": "",
     "token_file": "",
@@ -52,6 +55,7 @@
   "containers": {
     "mqtt_broker": ["mosquitto-broker", "mosquitto"],
     "mqtt_bridge": ["grpc-mqtt-bridge"],
+    "someip_door_provider": ["kuksa-opensomeip-door-provider"],
     "kuksa_databroker": ["kuksa-databroker", "databroker"],
     "can_provider": ["kuksa-can-provider"],
     "ankaios": ["ank-server", "ank-agent", "ankaios"],

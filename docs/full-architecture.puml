@@ -22,6 +22,11 @@ node "Driver Input ECU - Door\n(Arduino + RC522 RFID)" as ECU_DOOR {
   component "MQTT Publisher\nVehicle.Driver.Identifier.Subject" as DOOR_MQTT
 }
 
+node "Door Actuator ECU\n(Arduino Uno R4 WiFi + Servo)" as ECU_DOOR_ACTUATOR {
+  component "Servo Door Logic" as DOOR_SERVO
+  component "Minimal SOME/IP UDP Endpoint\n:30501" as DOOR_SOMEIP
+}
+
 node "ThreadX MCU Device 1\n(MXChip AZ3166, MQTT -> SOME/IP Gateway)" as ECU_THREADX_1 {
   component "NetX Duo Network Stack" as TX1_NET
   component "MQTT Subscriber\nTopics: DirectionIndication, Brake" as TX1_MQTT
@@ -50,6 +55,7 @@ node "Raspberry Pi 5 - Unified Vehicle + Fleet Host" as PI5 {
   frame "Signal Workloads (Podman)" as PI5_WORKLOADS {
     component "Mosquitto Broker\n:1883" as MOSQ
     component "grpc-mqtt-bridge" as BRIDGE
+    component "Kuksa OpenSOME/IP Door Provider\nUDP :30500" as SOMEIP_DOOR_PROVIDER
     component "Kuksa Databroker\n:55555" as KDB_VEHICLE
     component "Kuksa CAN Provider\n(dbc2val + val2dbc)" as CAN_PROVIDER
   }
@@ -85,6 +91,13 @@ DOOR_MQTT --> VehicleLAN : MQTT JSON
 VehicleLAN --> MOSQ : MQTT publish/subscribe
 MOSQ --> BRIDGE : subscribed topic\nInVehicleTopics
 BRIDGE --> KDB_VEHICLE : gRPC Val/Set updates
+DOOR_SERVO --> DOOR_SOMEIP
+DOOR_SOMEIP --> VehicleLAN : SOME/IP state event\n0x4301/0x8001
+VehicleLAN --> DOOR_SOMEIP : SOME/IP target event\n0x4301/0x8002
+VehicleLAN --> SOMEIP_DOOR_PROVIDER : UDP :30500
+SOMEIP_DOOR_PROVIDER --> VehicleLAN : UDP :30501
+SOMEIP_DOOR_PROVIDER --> KDB_VEHICLE : current value updates\nVAL v1 Set
+KDB_VEHICLE --> SOMEIP_DOOR_PROVIDER : target value subscription\nVAL v1
 MOSQ --> TX1_MQTT : subscribe\nDirectionIndication, Brake
 TX1_MQTT --> TX1_SOMEIP_TX : map MQTT payload to SOME/IP event
 TX1_BTN --> TX1_SOMEIP_TX : provide Button A/B pressed state

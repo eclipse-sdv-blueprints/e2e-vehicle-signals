@@ -16,6 +16,8 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -63,11 +65,68 @@ uint16_t parse_port(const char* value, const char* option) {
     return static_cast<uint16_t>(port);
 }
 
+std::string trim(std::string value) {
+    const std::string whitespace = " \t\r\n";
+    const size_t first = value.find_first_not_of(whitespace);
+    if (first == std::string::npos) {
+        return "";
+    }
+    return value.substr(first, value.find_last_not_of(whitespace) - first + 1);
+}
+
+void load_config_file(const std::string& path, Options* options) {
+    std::ifstream input(path);
+    if (!input) {
+        throw std::runtime_error("Unable to read config file: " + path);
+    }
+
+    std::string line;
+    unsigned int line_number = 0;
+    while (std::getline(input, line)) {
+        ++line_number;
+        const size_t comment = line.find('#');
+        const std::string entry = trim(line.substr(0, comment));
+        if (entry.empty()) {
+            continue;
+        }
+        const size_t separator = entry.find('=');
+        if (separator == std::string::npos) {
+            throw std::runtime_error("Invalid config entry at " + path + ':' +
+                                     std::to_string(line_number));
+        }
+
+        const std::string key = trim(entry.substr(0, separator));
+        const std::string value = trim(entry.substr(separator + 1));
+        if (key == "broker") {
+            options->broker = value;
+        } else if (key == "bindHost") {
+            options->bind_host = value;
+        } else if (key == "bindPort") {
+            options->bind_port = parse_port(value.c_str(), "bind");
+        } else if (key == "doorHost") {
+            options->door_host = value;
+        } else if (key == "doorPort") {
+            options->door_port = parse_port(value.c_str(), "door");
+        } else {
+            throw std::runtime_error("Unknown config key at " + path + ':' +
+                                     std::to_string(line_number) + ": " + key);
+        }
+    }
+}
+
 Options parse_options(int argc, char* argv[]) {
     Options options;
     for (int index = 1; index < argc; ++index) {
+        if (std::string(argv[index]) == "--config" && index + 1 < argc) {
+            load_config_file(argv[++index], &options);
+        }
+    }
+
+    for (int index = 1; index < argc; ++index) {
         const std::string argument = argv[index];
-        if (argument == "--broker" && index + 1 < argc) {
+        if (argument == "--config" && index + 1 < argc) {
+            ++index;
+        } else if (argument == "--broker" && index + 1 < argc) {
             options.broker = argv[++index];
         } else if (argument == "--bind-host" && index + 1 < argc) {
             options.bind_host = argv[++index];
@@ -80,7 +139,7 @@ Options parse_options(int argc, char* argv[]) {
         } else {
             throw std::runtime_error(
                 "Usage: kuksa-opensomeip-door-provider "
-                "[--broker host:port] [--bind-host address] [--bind-port port] "
+                "[--config path] [--broker host:port] [--bind-host address] [--bind-port port] "
                 "[--door-host address] [--door-port port]");
         }
     }
@@ -98,14 +157,49 @@ public:
 
     void on_message_received(someip::MessagePtr message,
                              const someip::transport::Endpoint&) override {
-        if (!message || message->get_message_type() != someip::MessageType::NOTIFICATION ||
-            message->get_service_id() != kDoorServiceId ||
-            message->get_method_id() != kDoorStateEventId ||
-            message->get_interface_version() != kInterfaceVersion) {
+        if (!message) {
+            std::cerr << "Ignoring SOME/IP packet: null message" << std::endl;
             return;
         }
 
+        const auto message_type = message->get_message_type();
+        const auto service_id = message->get_service_id();
+        const auto method_id = message->get_method_id();
+        const auto interface_version = message->get_interface_version();
         const auto& payload = message->get_payload();
+
+        if (message_type != someip::MessageType::NOTIFICATION) {
+            std::cerr << "Ignoring SOME/IP packet: unsupported message type "
+                      << static_cast<int>(message_type) << std::endl;
+            return;
+        }
+
+        if (service_id != kDoorServiceId) {
+            std::cerr << "Ignoring SOME/IP notification: unexpected service 0x" << std::hex
+                      << service_id << " (expected 0x" << kDoorServiceId << ")" << std::dec
+                      << std::endl;
+            return;
+        }
+
+        if (method_id != kDoorStateEventId) {
+            std::cerr << "Ignoring SOME/IP notification: unexpected method 0x" << std::hex
+                      << method_id << " (expected 0x" << kDoorStateEventId << ")" << std::dec
+                      << std::endl;
+            return;
+        }
+
+        if (interface_version != kInterfaceVersion) {
+            std::cerr << "Ignoring SOME/IP notification: interface version "
+                      << static_cast<int>(interface_version) << " (expected "
+                      << static_cast<int>(kInterfaceVersion) << ")" << std::endl;
+            return;
+        }
+
+        std::cout << "Accepted SOME/IP door state event"
+                  << " service=0x" << std::hex << service_id
+                  << " method=0x" << method_id
+                  << " payload_size=" << std::dec << payload.size() << std::endl;
+
         if (payload.size() != 1) {
             std::cerr << "Ignoring door state event with invalid payload size" << std::endl;
             return;
@@ -122,7 +216,10 @@ public:
         const grpc::Status status = client_->Set(context.get(), request, &response);
         if (!status.ok() || response.error().code() != 0) {
             client_->handleGrpcError(status, "DoorSomeipAdapter::on_message_received");
-            std::cerr << "Failed to write door state to Kuksa" << std::endl;
+            std::cerr << "Failed to write door state to Kuksa"
+                      << " grpc_ok=" << (status.ok() ? "true" : "false")
+                      << " grpc_code=" << status.error_code()
+                      << " broker_error=" << response.error().code() << std::endl;
             return;
         }
         std::cout << "Door state received: " << (is_open ? "open" : "closed") << std::endl;
@@ -136,6 +233,12 @@ public:
     }
 
     void send_target(bool is_open) {
+        if (has_last_target_ && last_target_ == is_open) {
+            std::cout << "Ignoring duplicate door target: "
+                      << (is_open ? "open" : "closed") << std::endl;
+            return;
+        }
+
         const uint16_t session_id = next_session_id_++;
         someip::Message message(
             someip::MessageId(kDoorServiceId, kDoorTargetEventId),
@@ -150,6 +253,9 @@ public:
             std::cerr << "Failed to send door target" << std::endl;
             return;
         }
+
+        has_last_target_ = true;
+        last_target_ = is_open;
         std::cout << "Door target sent: " << (is_open ? "open" : "closed") << std::endl;
     }
 
@@ -158,6 +264,8 @@ private:
     someip::transport::Endpoint door_endpoint_;
     std::shared_ptr<sdv::broker_feeder::CollectorClient> client_;
     uint16_t next_session_id_{1};
+    bool has_last_target_{false};
+    bool last_target_{false};
 };
 
 bool target_value_as_bool(const kuksa::val::v1::Datapoint& value, bool* result) {

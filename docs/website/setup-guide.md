@@ -136,6 +136,22 @@ or edit the manifest to use your local tag.
 
 The GitHub Actions workflow also publishes this image to `ghcr.io` on pushes to `main`.
 
+### 5.1 Build the OpenSOME/IP Door Provider Image
+
+Build from the repository root because the image uses the `external/opensomeip`
+submodule as build input:
+
+```bash
+git submodule update --init --recursive
+docker build -f devices/raspberry-pi5/kuksa-opensomeip-door-provider/Dockerfile \
+  -t kuksa-opensomeip-door-provider:local .
+```
+
+The Ankaios manifest starts the published image by default. For a local image,
+change its image reference in `vehicle-signals.yaml` to
+`localhost/kuksa-opensomeip-door-provider:local`, then set the Door ECU address
+on the `doorHost` line in `kuksa_opensomeip_door_provider_config`.
+
 ## 6. Start Everything
 
 From the repository root:
@@ -192,6 +208,24 @@ mosquitto_pub -h localhost -p 1883 -t InVehicleTopics -q 0 \
 
 ### Access the Services
 
+### Test the Door Actuator
+
+Use the VAL v1 CLI because the provider subscribes to V1 actuator targets:
+
+```bash
+docker run -it --rm --network host \
+  ghcr.io/eclipse-kuksa/kuksa-databroker-cli:main \
+  --server http://127.0.0.1:55555 --protocol kuksa.val.v1
+```
+
+```text
+actuate Vehicle.Cabin.Door.Row1.DriverSide.IsOpen true
+actuate Vehicle.Cabin.Door.Row1.DriverSide.IsOpen false
+```
+
+The provider must log `Door target sent`, and the ECU must be reachable at the
+configured `doorHost` on UDP `30501`. State events return to the Pi on UDP `30500`.
+
 | Service | URL |
 | --- | --- |
 | Demo website | `http://<pi-ip>:8090` |
@@ -206,6 +240,10 @@ Point the Arduino MQTT broker IP addresses to the Raspberry Pi 5. The default in
 
 - `devices/driver-input-ecu-arduino/mcu2-joystick-input/arduino_secrets.h`
 - `devices/driver-input-ecu-door/arduino_secrets.h`
+- `devices/driver-door-ecu/arduino_secrets.h`
+
+The servo Door ECU uses the same Wi-Fi credentials but does not use the MQTT
+broker address. Set its `SOMEIP_PROVIDER_IP` in `devices/driver-door-ecu/arduino_config.h`.
 
 For detailed device-specific setup, wiring and firmware instructions, see:
 

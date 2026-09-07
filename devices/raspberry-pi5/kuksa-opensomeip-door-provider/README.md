@@ -21,6 +21,17 @@ cmake --build build --parallel
 ./build/kuksa-opensomeip-door-provider --broker localhost:55555 --door-host 192.168.88.101
 ```
 
+The provider also accepts a simple `key=value` configuration file. This is the
+form used by Ankaios; CLI options supplied after `--config` override file values.
+
+```ini
+broker=localhost:55555
+bindHost=0.0.0.0
+bindPort=30500
+doorHost=192.168.88.101
+doorPort=30501
+```
+
 ## Container
 
 ```bash
@@ -58,3 +69,6 @@ docker run -it --rm --network host \
 actuate Vehicle.Cabin.Door.Row1.DriverSide.IsOpen true
 actuate Vehicle.Cabin.Door.Row1.DriverSide.IsOpen false
 ````
+
+The copied feeder uses the Kuksa VAL v1 actuator subscription API. A v2 client
+can write the signal, but it will not trigger this provider's v1 subscription.

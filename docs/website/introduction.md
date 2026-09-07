@@ -10,7 +10,7 @@ title: Introduction
 |                              |                                                                                                                                                                                                                                                                                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Short Summary**            | An end-to-end Vehicle E/E Architecture demo that combines the **Fleet Management** use case with an in-vehicle **MotorBike Blinker** use case. All signal names are aligned to the COVESA Vehicle Signal Specification (VSS), with Kuksa Databroker 0.6.0 running as an Eclipse Ankaios 0.7.0 workload.                       |
-| **What is in the showcase**  | In-vehicle signal flow from physical driver inputs (joystick, RFID) through MQTT, gRPC and CAN to physical LED actuators, combined with fleet-level data collection, telemetry storage and analytics dashboards.                                                                                                             |
+| **What is in the showcase**  | In-vehicle signal flow from physical driver inputs (joystick, RFID) through MQTT, gRPC and CAN to physical LED actuators, plus a servo door actuator connected through OpenSOME/IP UDP, combined with fleet-level data collection, telemetry storage and analytics dashboards.                                             |
 | **SDV Projects Involved**    | [Eclipse Kuksa](https://github.com/eclipse-kuksa), [Eclipse Ankaios](https://github.com/eclipse-ankaios), [Eclipse uProtocol](https://github.com/eclipse-uprotocol)                                                                                                                                                        |
 | **Other Technologies**       | Arduino (Uno R4 WiFi), MCP2515 CAN transceiver, SocketCAN, Mosquitto MQTT, Podman, Docker Compose, InfluxDB 2.7, Grafana, Jakarta EE, Zenoh, ThreadX / Eclipse RTOS, SOME/IP                                                                                                                                                |
 | **Target Hardware**          | Raspberry Pi 5, Raspberry Pi 4 (optional), Arduino Uno R4 WiFi (×2), MXChip AZ3166 (×2, optional)                                                                                                                                                                                                                           |
@@ -27,6 +27,10 @@ The demo integrates two complementary use cases:
 
 An optional **ThreadX SOME/IP extension** synchronises blinker and button state between two MXChip AZ3166 boards over Wi-Fi using OpenSOME/IP.
 
+The active Door Actuator ECU is a separate Arduino + servo endpoint. Its
+OpenSOME/IP provider workload maps `Vehicle.Cabin.Door.Row1.DriverSide.IsOpen`
+between Kuksa VAL v1 and minimal UDP SOME/IP state/target events.
+
 ## Device Topology
 
 The physical setup consists of up to six devices on the same Wi-Fi network:
@@ -38,6 +42,7 @@ The physical setup consists of up to six devices on the same Wi-Fi network:
 | **Arduino Uno R4 WiFi #1** | Joystick input ECU | MQTT publisher (VSS JSON) |
 | **Arduino Uno R4 WiFi #2 + MCP2515** | LED control ECU | CAN listener, WS2812 LED driver |
 | **Arduino + RC522 RFID** | Door/driver-ID ECU | MQTT publisher (driver UID) |
+| **Arduino Uno R4 WiFi + servo** | Door actuator ECU | SOME/IP UDP endpoint via OpenSOME/IP Door Provider |
 | **MXChip AZ3166 (×2)** | ThreadX SOME/IP peers (optional) | MQTT subscriber + SOME/IP bridge |
 
 ## Eclipse SDV Technologies Used
@@ -72,6 +77,8 @@ graph LR
 - [Fleet Analysis Backend](./fleet-analysis) — Jakarta EE analytics service
 
 ### Device Guides
+
+- [Door Actuator ECU](./driver-door-ecu-servo-mqtt) - Servo door through OpenSOME/IP UDP
 
 - [Joystick Input ECU](./device-joystick-ecu) — Arduino joystick ECU setup and configuration
 - [LED Control ECU](./device-led-ecu) — CAN-connected LED strip controller

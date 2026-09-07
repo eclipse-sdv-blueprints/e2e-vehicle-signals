@@ -41,9 +41,14 @@ workloads:
     runtime: podman
     agent: agent_B
     restartPolicy: ALWAYS
+    configs:
+      kuksa_opensomeip_door_provider_config: kuksa_opensomeip_door_provider_config
+    files:
+      - mountPoint: "/config/kuksa-opensomeip-door-provider.conf"
+        data: "{{kuksa_opensomeip_door_provider_config}}"
     runtimeConfig: |
       image: ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/kuksa-opensomeip-door-provider:main
-      commandArgs: ["--broker", "localhost:55555", "--door-host", "192.168.88.101"]
+      commandArgs: ["--config", "/config/kuksa-opensomeip-door-provider.conf"]
       commandOptions: ["--net=host"]
   kuksa-livi-bridge:
     runtime: podman
@@ -174,6 +179,13 @@ configs:
               Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling: true
             value: right
         default: none
+  kuksa_opensomeip_door_provider_config: |
+    # The provider binds UDP :30500 and sends commands to the Arduino Door ECU.
+    broker=localhost:55555
+    bindHost=0.0.0.0
+    bindPort=30500
+    doorHost=192.168.88.101
+    doorPort=30501
   website_config: |
     {
       "probe_timeout_seconds": 1.2,
@@ -203,18 +215,21 @@ configs:
           "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
           "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
           "Vehicle.Body.Lights.Brake.IsActive",
-          "Vehicle.Driver.Identifier.Subject"
+          "Vehicle.Driver.Identifier.Subject",
+          "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
         ],
         "command_paths": [
           "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
           "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
           "Vehicle.Body.Lights.Brake.IsActive",
-          "Vehicle.Driver.Identifier.Subject"
+          "Vehicle.Driver.Identifier.Subject",
+          "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
         ],
         "feedback_paths": [
           "Vehicle.Body.Lights.DirectionIndicator.Left.IsSignaling",
           "Vehicle.Body.Lights.DirectionIndicator.Right.IsSignaling",
-          "Vehicle.Body.Lights.Brake.IsActive"
+          "Vehicle.Body.Lights.Brake.IsActive",
+          "Vehicle.Cabin.Door.Row1.DriverSide.IsOpen"
         ],
         "token": "",
         "token_file": "",
@@ -225,6 +240,7 @@ configs:
       "containers": {
         "mqtt_broker": ["mosquitto-broker", "mosquitto"],
         "mqtt_bridge": ["grpc-mqtt-bridge"],
+        "someip_door_provider": ["kuksa-opensomeip-door-provider"],
         "kuksa_databroker": ["kuksa-databroker", "databroker"],
         "can_provider": ["kuksa-can-provider"],
         "ankaios": ["ank-server", "ank-agent", "ankaios"],

@@ -28,8 +28,8 @@ dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000
 - install git and clone this repo:
   - ````sudo apt update ````
   - ````sudo apt install git ````
-  - ````git clone https://github.com/chheis/eclipse-sdv-e2e-demo-blueprint --recurse-submodules````
-  - ````cd eclipse-sdv-e2e-demo-blueprint/devices/raspberry-pi5/ ````
+  - ````git clone https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals --recurse-submodules````
+  - ````cd e2e-vehicle-signals/devices/raspberry-pi5/ ````
   - ````chmod +x setup.sh ````
   - Hint: if you miss --recurse-submodules in the begining use: ````git submodule init ```` and ````git pull --recurse-submodules````
 - use the setup.sh
@@ -55,7 +55,7 @@ dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000
       3. "motorbike-blinker-command.dbc"
       4. "motorbike-blinker-defaults.json"
 - Maybe use this to init the network: ````docker swarm init ````  
-- start the workload from eclipse-sdv-e2e-demo-blueprint root folder: ````sudo ./start-fleet-and-ankaios.sh```` 
+- start the workload from e2e-vehicle-signals root folder: ````sudo ./start-fleet-and-ankaios.sh```` 
 - the startup script also starts **Dozzle** (default `http://<pi-ip>:8080`) for container log/health visibility
 - the startup script builds the **Pi5 website container image** and the Ankaios manifest starts `pi5-demo-website` on `http://<pi-ip>:8090`
 - for the website workload config, edit `devices/raspberry-pi5/website/site-config.json`; the startup script injects that JSON into the Ankaios website workload before applying the manifest

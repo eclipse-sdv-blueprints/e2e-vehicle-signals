@@ -1,4 +1,4 @@
-# eclipse-sdv-e2e-demo-blueprint
+# e2e-vehicle-signals
 
 This repository prepares a Vehicle E/E Architecture demo that combines the **Fleet Management** use case from the Eclipse SDV Blueprints project with an in-vehicle **MotorBike Blinker** use case. The demo aligns all signal names to the COVESA Vehicle Signal Specification (VSS) and uses Kuksa Databroker 0.6.0 running as an Eclipse Ankaios 0.7.0 workload.
 

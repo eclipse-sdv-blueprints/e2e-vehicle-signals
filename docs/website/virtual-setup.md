@@ -3,8 +3,6 @@ sidebar_position: 5
 title: Virtual Setup
 ---
 
-# Virtual Setup
-
 The virtual setup runs the E2E Demo Blueprint without physical ECUs or CAN hardware. It replaces the joystick, RFID door reader, and LED-strip actuator with a browser-based **Virtual Indicator UI** while keeping the rest of the signal flow and Fleet Management stack intact.
 
 ## What it replaces
@@ -77,12 +75,17 @@ From the repository root:
 ```bash
 bash virtual-setup/stop-virtual-setup.sh
 bash virtual-setup/start-virtual-setup.sh
+
+# Optional: enable debug logs for virtual-indicator-ui
+LOG_LEVEL=DEBUG bash virtual-setup/start-virtual-setup.sh
 ```
 
 Port usage note:
 
 - Inside Docker `fms-vehicle`, use `databroker:55556`.
-- From the host, Databroker is exposed as `localhost:55555`.
+- By default, from the host Databroker is exposed as `localhost:55555`.
+- The startup script prints internal Compose service ports; published host ports
+    can differ when compose overrides remap them.
 
 ## Access the services
 
@@ -98,4 +101,6 @@ Port usage note:
 
 - The virtual setup reuses Fleet Management assets from `external/fleet-management`.
 - `fms-consumer`, not `fms-forwarder`, is the service that writes telemetry into InfluxDB.
+- `virtual-indicator-ui` receives incremental SSE updates (changed paths only) and
+    keeps a client-side cache of latest values to render stable LED state.
 - The virtual setup is intended for local development, demos, and CI-style validation where physical hardware is unavailable.

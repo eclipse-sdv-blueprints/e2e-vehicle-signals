@@ -7,6 +7,8 @@ participant "Door RFID ECU\n(Arduino + RC522)" as RfidECU
 participant "Mosquitto\n(MQTT Broker)" as Broker
 participant "MQTT-to-gRPC Bridge" as Bridge
 participant "Kuksa Databroker" as Kuksa
+participant "OpenSOME/IP Door Provider" as DoorProvider
+participant "Door Actuator ECU\n(Arduino + Servo)" as DoorActuator
 participant "Kuksa CAN Provider" as CAN
 participant "Blinker ECU\n(MCU1 LED Control)" as MCU
 participant "VSS Consumers\n(Fleet/UI/CLI)" as Consumers
@@ -26,6 +28,12 @@ Driver -> RfidECU: Present RFID card
 RfidECU -> Broker: Publish {"Vehicle.Driver.Identifier.Subject":"<UID>"}
 Broker -> Bridge: Deliver MQTT message
 Bridge -> Kuksa: Set Vehicle.Driver.Identifier.Subject (string)
+
+== Door actuator path (Kuksa <-> SOME/IP UDP) ==
+Kuksa -> DoorProvider: VAL v1 target subscription
+DoorProvider -> DoorActuator: SOME/IP UDP notification\n0x4301 / 0x8002 (target)
+DoorActuator -> DoorProvider: SOME/IP UDP notification\n0x4301 / 0x8001 (state)
+DoorProvider -> Kuksa: VAL v1 Set current value
 
 == Feedback path (bus state back to VSS) ==
 MCU -> CAN: CAN frame BlinkerStatus (ID 289)

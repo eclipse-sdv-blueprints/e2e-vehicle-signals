@@ -67,6 +67,9 @@ cd virtual-setup
 # Start Fleet Management + virtual services
 bash ./start-virtual-setup.sh
 
+# Optional: enable debug logs for virtual-indicator-ui
+LOG_LEVEL=DEBUG bash ./start-virtual-setup.sh
+
 # Indicator Input + Actor UI
 open http://localhost:8091
 
@@ -92,7 +95,10 @@ Browser button click
 ```
 
 Inside the Docker `fms-vehicle` network, services must use `databroker:55556`.
-Host access stays mapped to `localhost:55555`.
+By default, host access is mapped to `localhost:55555`.
+
+The startup script prints **internal Docker Compose service ports**. If your compose
+overrides remap ports, published host ports may differ.
 
 ## Virtual Indicator UI
 
@@ -107,6 +113,13 @@ Open **http://localhost:8091** to get:
 The input panel publishes VSS JSON to `InVehicleTopics` MQTT with the exact same schema the physical joystick ECU uses. `grpc-mqtt-bridge` requires no changes.
 
 The actor panel subscribes to Kuksa Databroker via Server-Sent Events (`GET /api/sse/signals`) and updates the LED state every 200 ms.
+
+The backend SSE stream emits **incremental updates** (changed paths only). The UI
+maintains a local cache of the latest values per tracked path so partial events do
+not clear indicator state.
+
+The backend is aligned with the Kuksa Databroker `0.6.x` setup used in this
+virtual stack.
 
 The Kuksa LIVI bridge is optional in this virtual setup and is disabled by default (commented out in `virtual-e2e-compose.yaml`).
 

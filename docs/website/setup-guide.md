@@ -33,8 +33,8 @@ Ensure **all demo devices** (Arduinos, AZ3166 boards, Raspberry Pi) are on the *
 ```bash
 sudo apt update
 sudo apt install -y git
-git clone https://github.com/chheis/eclipse-sdv-e2e-demo-blueprint --recurse-submodules
-cd eclipse-sdv-e2e-demo-blueprint/devices/raspberry-pi5/
+git clone https://github.com/eclipse-sdv-blueprints/e2e-vehicle-signals --recurse-submodules
+cd e2e-vehicle-signals/devices/raspberry-pi5/
 chmod +x setup.sh
 ```
 
@@ -127,9 +127,9 @@ docker build -t grpc-mqtt-bridge:latest devices/raspberry-pi5/grpc-mqtt-bridge
 ```
 
 :::caution Image Tag
-The Ankaios manifest (`vehicle-signals.yaml`) references the GHCR image `ghcr.io/chheis/eclipse-sdv-e2e-demo-blueprint/grpc-mqtt-bridge:main`. If you build locally with tag `:latest`, either re-tag the image:
+The Ankaios manifest (`vehicle-signals.yaml`) references the GHCR image `ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main`. If you build locally with tag `:latest`, either re-tag the image:
 ```bash
-podman tag grpc-mqtt-bridge:latest ghcr.io/chheis/eclipse-sdv-e2e-demo-blueprint/grpc-mqtt-bridge:main
+podman tag grpc-mqtt-bridge:latest ghcr.io/eclipse-sdv-blueprints/e2e-vehicle-signals/grpc-mqtt-bridge:main
 ```
 or edit the manifest to use your local tag.
 :::

@@ -39,6 +39,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          uid_gid="$(id -u):$(id -g)"
           files=(
             "docs/full-architecture.puml"
             "devices/raspberry-pi5/communication-workflow.puml"
@@ -47,6 +48,7 @@ jobs:
           for format in png svg; do
             for src in "${files[@]}"; do
               docker run --rm \
+                --user "${uid_gid}" \
                 -v "${GITHUB_WORKSPACE}:/workspace" \
                 -w /workspace \
                 plantuml/plantuml:latest \
@@ -63,11 +65,9 @@ jobs:
           done
 
           echo "Rendered files:"
-          ls -1 \
-            docs/full-architecture*.png \
-            docs/full-architecture*.svg \
-            devices/raspberry-pi5/communication-workflow*.png \
-            devices/raspberry-pi5/communication-workflow*.svg
+          find docs devices/raspberry-pi5 -maxdepth 2 -type f \
+            \( -name "full-architecture*.png" -o -name "full-architecture*.svg" -o -name "communication-workflow*.png" -o -name "communication-workflow*.svg" \) \
+            -print | sort
 
       - name: Upload rendered diagrams
         uses: actions/upload-artifact@v4

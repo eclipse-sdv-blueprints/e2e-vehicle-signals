@@ -51,6 +51,7 @@ KUKSA_PORT    = int(os.environ.get("KUKSA_PORT", "55555"))
 MQTT_TOPIC    = os.environ.get("MQTT_TOPIC", "InVehicleTopics")
 HTTP_HOST     = os.environ.get("HTTP_HOST", "0.0.0.0")
 HTTP_PORT     = int(os.environ.get("HTTP_PORT", "8091"))
+LOG_LEVEL     = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 # VSS paths handled by this service
 VSS_BOOL_PATHS: frozenset[str] = frozenset({
@@ -161,16 +162,25 @@ def _actuator_feedback_worker() -> None:
                 while True:
                     try:
                         entries = client.get_target_values(ACTUATOR_PATHS)
+                        LOG.debug("Actuator target poll returned %d entries", len(entries))
                         changed: dict[str, Any] = {}
                         for path, entry in entries.items():
                             v = _get_entry_value(entry)
+                            if v is None:
+                                LOG.debug(
+                                    "Target value missing for %s (entry_type=%s)",
+                                    path,
+                                    type(entry).__name__ if entry is not None else "NoneType",
+                                )
+                                continue
                             if v is not None and last_vals.get(path) != v:
-                                # set_current_values accepts Datapoint or raw value
-                                # depending on kuksa-client version; try both
-                                try:
-                                    changed[path] = Datapoint(v)
-                                except Exception:
-                                    changed[path] = v
+                                changed[path] = Datapoint(v)
+                                LOG.debug(
+                                    "Target change detected: %s %r -> %r",
+                                    path,
+                                    last_vals.get(path),
+                                    v,
+                                )
                                 last_vals[path] = v
                         if changed:
                             client.set_current_values(changed)
@@ -204,6 +214,7 @@ def _sensor_watcher() -> None:
             ) as client:
                 LOG.info("Sensor watcher connected to %s:%d", KUKSA_HOST, KUKSA_PORT)
                 for updates in client.subscribe_current_values(VSS_ALL_PATHS):
+                    LOG.debug("Sensor watcher received %d updates", len(updates))
                     snapshot: dict[str, Any] = {}
                     for path, entry in updates.items():
                         v = _get_entry_value(entry)
@@ -218,28 +229,44 @@ def _sensor_watcher() -> None:
         time.sleep(3)
 
 
-# ── Kuksa value extraction helper ────────────────────────────────────────────
-_SENTINEL = object()
-
-
 def _get_entry_value(entry: Any) -> Any:
-    """Extract the raw Python value from a kuksa DataEntry.
+    """Extract raw Python value from kuksa-client objects used in this setup.
 
-    Handles two kuksa-client API generations:
-    - Older (<= 0.4.x): DataEntry.value is a Datapoint; Datapoint.value is the Python value.
-    - Newer (>= 0.5.x): DataEntry.value IS the Python value directly (str, bool, etc.).
+    In the current Kuksa stack, get/subscribe calls may return either:
+    - Datapoint objects where .value is already a Python primitive, or
+    - Entry wrappers where .value points to a datapoint-like object.
     """
     if entry is None:
+        LOG.debug("_get_entry_value: entry is None")
         return None
     val = getattr(entry, "value", None)
     if val is None:
+        LOG.debug("_get_entry_value: entry.value missing on %s", type(entry).__name__)
         return None
-    # Old API: val is a Datapoint with its own .value attribute
-    inner = getattr(val, "value", _SENTINEL)
-    if inner is not _SENTINEL:
-        return inner
-    # New API: val is already the Python primitive
-    return val
+
+    # Most commonly in this setup, val is already the primitive value.
+    if isinstance(val, (bool, str, int, float)):
+        return val
+
+    # If val is a wrapper, unwrap one level.
+    extracted = getattr(val, "value", None)
+    if extracted is None:
+        LOG.debug(
+            "_get_entry_value: unsupported value container on %s (entry.value type=%s)",
+            type(entry).__name__,
+            type(val).__name__,
+        )
+        return None
+
+    if isinstance(extracted, (bool, str, int, float)):
+        return extracted
+
+    LOG.debug(
+        "_get_entry_value: unsupported nested value type on %s (nested type=%s)",
+        type(entry).__name__,
+        type(extracted).__name__,
+    )
+    return None
 
 
 def _broadcast_sse(data: dict) -> None:
@@ -402,7 +429,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logging.basicConfig(
-        level=logging.INFO,
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
 

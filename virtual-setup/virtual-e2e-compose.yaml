@@ -74,6 +74,7 @@ services:
       KUKSA_HOST: databroker
       KUKSA_PORT: "55556"
       MQTT_TOPIC: InVehicleTopics
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
   pi5-demo-website:
     image: pi5-demo-website:virtual

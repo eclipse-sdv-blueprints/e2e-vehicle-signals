@@ -3,6 +3,8 @@ sidebar_position: 5
 title: Virtual Setup
 ---
 
+# Virtual Setup
+
 The virtual setup runs the E2E Demo Blueprint without physical ECUs or CAN hardware. It replaces the joystick, RFID door reader, and LED-strip actuator with a browser-based **Virtual Indicator UI** while keeping the rest of the signal flow and Fleet Management stack intact.
 
 ## What it replaces
@@ -86,6 +88,7 @@ Port usage note:
 - By default, from the host Databroker is exposed as `localhost:55555`.
 - The startup script prints internal Compose service ports; published host ports
     can differ when compose overrides remap them.
+- From the host, Databroker is exposed as `localhost:55555`.
 
 ## Access the services
 

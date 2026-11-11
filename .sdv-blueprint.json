@@ -1,0 +1,16 @@
+{
+  "name": "e2e-vehicle-signals",
+  "version": "0.1.0",
+  "description": "An end-to-end Vehicle E/E Architecture demo combining the Fleet Management use case with an in-vehicle MotorBike Blinker use case.",
+  "participatingProjects": [
+    {
+      "id": "automotive.kuksa"
+    },
+    {
+      "id": "automotive.ankaios"
+    },
+    {
+      "id": "automotive.uprotocol"
+    }
+  ]
+}
